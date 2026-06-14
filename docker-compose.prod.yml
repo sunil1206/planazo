@@ -1,0 +1,140 @@
+version: "3.9"
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  PRODUCTION — planazo.in (142.93.212.29)
+#  No ports exposed except 80 (nginx).
+#  Host nginx with SSL proxies into this nginx container.
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── PostgreSQL ──────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_DB:       ${DB_NAME:-planazo}
+      POSTGRES_USER:     ${DB_USER:-planazo}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-planazo}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+
+  # ── Redis ───────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+
+  # ── Main FastAPI app (replaces Django) ───────────────────────────────────────
+  api:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    restart: always
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
+    env_file: .env.production
+    volumes:
+      - media_files:/workspace/media
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - internal
+
+  # ── Celery worker ─────────────────────────────────────────────────────────────
+  celery:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    restart: always
+    command: celery -A app.workers.celery_app worker -l info --concurrency=2
+    env_file: .env.production
+    volumes:
+      - media_files:/workspace/media
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - internal
+
+  # ── Legacy FastAPI AI microservice (ai/photobooth/images) ─────────────────────
+  fastapi:
+    build:
+      context: ./fastapi
+      dockerfile: Dockerfile
+    restart: always
+    command: uvicorn main:app --host 0.0.0.0 --port 8001 --workers 2
+    env_file: .env.production
+    volumes:
+      - media_files:/app/media
+    networks:
+      - internal
+
+  # ── Next.js (production build) ────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+      args:
+        NEXT_PUBLIC_API_URL:          https://planazo.in
+        NEXT_PUBLIC_FASTAPI_URL:      https://planazo.in
+        NEXT_PUBLIC_RAZORPAY_KEY_ID:  ${NEXT_PUBLIC_RAZORPAY_KEY_ID}
+    restart: always
+    environment:
+      NODE_ENV:              production
+      NEXT_PUBLIC_API_URL:   https://planazo.in
+      INTERNAL_API_URL:      http://api:8000
+      INTERNAL_FAST_URL:     http://fastapi:8001
+      NEXTAUTH_URL:          https://planazo.in
+      NEXTAUTH_SECRET:       ${NEXTAUTH_SECRET}
+      AUTH_SECRET:           ${NEXTAUTH_SECRET}
+      GOOGLE_CLIENT_ID:      ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET:  ${GOOGLE_CLIENT_SECRET}
+    depends_on:
+      - api
+      - fastapi
+    networks:
+      - internal
+
+  # ── Nginx (SSL termination + HTTP→HTTPS redirect) ─────────────────────────────
+  nginx:
+    image: nginx:alpine
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/planazo.conf:/etc/nginx/conf.d/default.conf:ro
+      - media_files:/app/media:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+    depends_on:
+      - api
+      - fastapi
+      - frontend
+    networks:
+      - internal
+
+volumes:
+  postgres_data:
+  media_files:
+
+networks:
+  internal:
+    driver: bridge

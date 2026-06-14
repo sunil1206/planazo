@@ -1,0 +1,53 @@
+# Core
+Django==5.0.6
+djangorestframework==3.15.2
+django-environ==0.11.2
+django-cors-headers==4.4.0
+django-filter==24.3
+gunicorn==22.0.0
+whitenoise==6.7.0
+
+# Auth
+django-allauth==64.2.1
+djangorestframework-simplejwt==5.3.1
+google-auth==2.34.0
+google-auth-oauthlib==1.2.1
+
+# Database
+psycopg2-binary==2.9.9
+
+# Cache / Queue
+redis==5.1.0
+celery==5.4.0
+
+# Image Processing
+Pillow==10.4.0
+opencv-python-headless==4.10.0.84
+# Note: InsightFace/onnxruntime NOT installed here — AI is handled by FastAPI service.
+# Celery tasks have graceful try/except fallbacks when insightface is absent.
+
+# Storage
+django-storages==1.14.4
+
+# Payments
+razorpay==1.4.1
+
+# Email
+resend==2.4.0
+
+# Monitoring
+sentry-sdk[django,celery]==2.14.0
+django-prometheus==2.3.1
+
+# Admin UI
+django-jazzmin==3.0.1
+
+# Utils
+django-extensions==3.2.3
+python-slugify==8.0.4
+
+
+setuptools<82.0.0
+cryptography
+razorpay
+requests==2.32.3   # used by celery tasks to call FastAPI

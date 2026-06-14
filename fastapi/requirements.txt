@@ -1,0 +1,18 @@
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+python-multipart==0.0.9
+aiofiles==24.1.0
+Pillow==10.4.0
+opencv-python-headless==4.10.0.84
+rembg==2.0.57
+celery==5.4.0
+redis==5.1.0
+psycopg2-binary==2.9.9
+SQLAlchemy==2.0.35
+python-dotenv==1.0.1
+sentry-sdk[fastapi]==2.14.0
+prometheus-fastapi-instrumentator==7.0.0
+websockets==13.0.1
+# Face recognition — InsightFace requires onnxruntime
+insightface==0.7.3
+onnxruntime==1.19.2

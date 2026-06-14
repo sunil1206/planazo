@@ -1,0 +1,31 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    project: snapshare
+    env: development
+
+scrape_configs:
+  # Django (django-prometheus exposes /metrics)
+  - job_name: django
+    static_configs:
+      - targets: ['django:8000']
+    metrics_path: /metrics
+    scrape_interval: 15s
+
+  # FastAPI (custom /metrics endpoint)
+  - job_name: fastapi
+    static_configs:
+      - targets: ['fastapi:8001']
+    metrics_path: /metrics
+    scrape_interval: 15s
+
+  # Prometheus self-monitoring
+  - job_name: prometheus
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Postgres exporter (if added later)
+  # - job_name: postgres
+  #   static_configs:
+  #     - targets: ['postgres-exporter:9187']

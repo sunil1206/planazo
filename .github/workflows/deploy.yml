@@ -1,0 +1,48 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Install backend deps
+        run: pip install -r backend/requirements.txt
+      - name: Run Django tests
+        run: |
+          cd backend
+          python manage.py test --settings=core.settings.dev
+        env:
+          DB_HOST: localhost
+          DB_NAME: snapshare_test
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          REDIS_URL: redis://localhost:6379/0
+          DJANGO_SECRET_KEY: test-secret-key
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host:     ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key:      ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd /opt/snapshare
+            git pull origin main
+            cp .env.production .env
+            docker compose pull
+            docker compose up -d --build
+            docker compose exec -T django python manage.py migrate --noinput
+            docker compose exec -T django python manage.py collectstatic --noinput
+            echo "Deployed successfully"
