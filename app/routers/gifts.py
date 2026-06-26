@@ -207,7 +207,10 @@ async def _get_or_create_cart(user: User, db: AsyncSession) -> Cart:
     result = await db.execute(
         select(Cart)
         .where(Cart.user_id == user.id)
-        .options(selectinload(Cart.items).selectinload(CartItem.product))
+        .options(
+            selectinload(Cart.items).selectinload(CartItem.product),
+            selectinload(Cart.items).selectinload(CartItem.variant),
+        )
     )
     cart = result.scalar_one_or_none()
     if not cart:

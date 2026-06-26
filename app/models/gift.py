@@ -147,7 +147,7 @@ class GiftOrder(Base):
     __tablename__ = "gift_orders"
 
     id                   = Column(Integer, primary_key=True)
-    product_id           = Column(Integer, ForeignKey("gift_products.id", ondelete="PROTECT"), nullable=False)
+    product_id           = Column(Integer, ForeignKey("gift_products.id", ondelete="RESTRICT"), nullable=False)
     website_id           = Column(Integer, ForeignKey("couple_websites.id", ondelete="SET NULL"), nullable=True)
     sender_name          = Column(String(255), nullable=False)
     sender_email         = Column(String(254), nullable=False)
@@ -208,7 +208,7 @@ class MarketplaceOrderItem(Base):
 
     id           = Column(Integer, primary_key=True)
     order_id     = Column(Integer, ForeignKey("gift_marketplace_orders.id", ondelete="CASCADE"), nullable=False)
-    product_id   = Column(Integer, ForeignKey("gift_products.id", ondelete="PROTECT"), nullable=False)
+    product_id   = Column(Integer, ForeignKey("gift_products.id", ondelete="RESTRICT"), nullable=False)
     variant_id   = Column(Integer, ForeignKey("gift_product_variants.id", ondelete="SET NULL"), nullable=True)
     seller_id    = Column(Integer, ForeignKey("gift_sellers.id", ondelete="SET NULL"), nullable=True)
     product_name = Column(String(255), nullable=False)
