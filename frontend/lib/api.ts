@@ -9,8 +9,8 @@
  */
 import ky from "ky";
 
-const DJANGO_URL  = process.env.NEXT_PUBLIC_API_URL     || "http://localhost:8000";
-const FASTAPI_URL = process.env.NEXT_PUBLIC_FASTAPI_URL  || "http://localhost:8001";
+const DJANGO_URL  = import.meta.env.VITE_API_URL      || "http://localhost:8000";
+const FASTAPI_URL = import.meta.env.VITE_FASTAPI_URL  || "http://localhost:8001";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

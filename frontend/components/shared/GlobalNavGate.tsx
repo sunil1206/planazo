@@ -10,7 +10,7 @@
  * Mounted in app/layout.tsx so every URL gets the right behaviour
  * automatically — no per-page wiring required.
  */
-import { usePathname } from "next/navigation";
+import { useLocation } from "react-router-dom";
 import PublicNavbar from "./PublicNavbar";
 
 // Routes (or route prefixes) that have their OWN navigation chrome and must
@@ -40,7 +40,7 @@ function startsWithAny(path: string, prefixes: string[]) {
 }
 
 export default function GlobalNavGate() {
-  const pathname = usePathname() || "/";
+  const { pathname } = useLocation();
 
   if (startsWithAny(pathname, HIDDEN_PREFIXES)) {
     return null;
