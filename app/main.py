@@ -26,6 +26,9 @@ from app.routers.permissions import router as permissions_router
 from app.routers.storage import router as storage_router
 from app.routers.gallery_v2 import router as gallery_v2_router
 from app.routers.photographer import router as photographer_router
+# Seller dashboard + payment webhooks
+from app.routers.gifts_seller import router as gifts_seller_router
+from app.routers.razorpay_webhook import router as razorpay_webhook_router
 from app.admin.main import admin, vendor_admin, gift_admin
 from app.admin.views import register_views
 
@@ -105,6 +108,9 @@ def create_app() -> FastAPI:
         storage_router,
         gallery_v2_router,
         photographer_router,
+        # Seller + webhooks
+        gifts_seller_router,
+        razorpay_webhook_router,
     ]:
         app.include_router(router)
 
