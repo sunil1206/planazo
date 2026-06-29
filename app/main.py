@@ -21,6 +21,11 @@ from app.routers.gallery import router as gallery_router
 from app.routers.payment import router as payment_router
 from app.routers.gifts import router as gifts_router
 from app.routers.birthday import router as birthday_router
+# Phase 1 — new routers
+from app.routers.permissions import router as permissions_router
+from app.routers.storage import router as storage_router
+from app.routers.gallery_v2 import router as gallery_v2_router
+from app.routers.photographer import router as photographer_router
 from app.admin.main import admin, vendor_admin, gift_admin
 from app.admin.views import register_views
 
@@ -95,6 +100,11 @@ def create_app() -> FastAPI:
         payment_router,
         gifts_router,
         birthday_router,
+        # Phase 1
+        permissions_router,
+        storage_router,
+        gallery_v2_router,
+        photographer_router,
     ]:
         app.include_router(router)
 

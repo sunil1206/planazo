@@ -35,9 +35,10 @@ class CoupleWebsite(Base):
     guest_photos    = relationship("WeddingGalleryPhoto",back_populates="website", cascade="all, delete-orphan")
     wedding_vendors = relationship("WeddingVendor",      back_populates="website", cascade="all, delete-orphan")
     gallery_images  = relationship("GalleryImage",       back_populates="website", cascade="all, delete-orphan")
-    gift_orders     = relationship("GiftOrder",          back_populates="website")
-    selfie_matches  = relationship("GuestSelfieMatch",   back_populates="website", cascade="all, delete-orphan")
-    scheduled_deliveries = relationship("ScheduledDelivery", back_populates="website")
+    gift_orders          = relationship("GiftOrder",          back_populates="website")
+    selfie_matches       = relationship("GuestSelfieMatch",   back_populates="website", cascade="all, delete-orphan")
+    scheduled_deliveries = relationship("ScheduledDelivery",  back_populates="website")
+    albums               = relationship("GalleryAlbum",        back_populates="website", cascade="all, delete-orphan")
 
 
 class BrideGroom(Base):

@@ -18,7 +18,11 @@ from app.models.vendor import (
     VendorPackage, VendorPortfolioImage, VendorEnquiry, VendorReview,
     SubscriptionPlan, VendorSubscription, VendorFavorite,
 )
-from app.models.gallery import GalleryCategory, GalleryImage, GuestSelfieMatch
+from app.models.gallery import (
+    GalleryCategory, GalleryAlbum, GalleryImage,
+    GalleryMediaLike, GalleryMediaComment, GuestSelfieMatch,
+)
+from app.models.permissions import EventPermission, PhotographerProfile, PhotographerAssignment
 from app.models.gift import (
     GiftSeller, GiftCategory, GiftProduct, ProductImage, ProductVariant,
     ProductReview, Cart, CartItem, GiftOrder, MarketplaceOrder,
@@ -70,6 +74,41 @@ class GuestSelfieMatchAdmin(ModelView, model=GuestSelfieMatch):
     column_list = [GuestSelfieMatch.id, GuestSelfieMatch.website_id,
                    GuestSelfieMatch.status, GuestSelfieMatch.created_at]
     column_filters = [GuestSelfieMatch.status]
+
+
+class GalleryAlbumAdmin(ModelView, model=GalleryAlbum):
+    column_list = [GalleryAlbum.id, GalleryAlbum.website_id, GalleryAlbum.name,
+                   GalleryAlbum.privacy, GalleryAlbum.is_published, GalleryAlbum.order]
+    column_filters = [GalleryAlbum.privacy, GalleryAlbum.is_published]
+
+
+class GalleryMediaCommentAdmin(ModelView, model=GalleryMediaComment):
+    column_list = [GalleryMediaComment.id, GalleryMediaComment.image_id,
+                   GalleryMediaComment.guest_name, GalleryMediaComment.is_approved,
+                   GalleryMediaComment.created_at]
+    column_filters = [GalleryMediaComment.is_approved]
+
+
+class EventPermissionAdmin(ModelView, model=EventPermission):
+    column_list = [EventPermission.id, EventPermission.event_type, EventPermission.event_id,
+                   EventPermission.user_id, EventPermission.role, EventPermission.created_at]
+    column_filters = [EventPermission.event_type, EventPermission.role]
+    can_delete = False
+
+
+class PhotographerProfileAdmin(ModelView, model=PhotographerProfile):
+    column_list = [PhotographerProfile.id, PhotographerProfile.display_name,
+                   PhotographerProfile.base_city, PhotographerProfile.is_verified,
+                   PhotographerProfile.is_available, PhotographerProfile.rating]
+    column_filters = [PhotographerProfile.is_verified, PhotographerProfile.is_available]
+    column_searchable_list = [PhotographerProfile.display_name, PhotographerProfile.base_city]
+
+
+class PhotographerAssignmentAdmin(ModelView, model=PhotographerAssignment):
+    column_list = [PhotographerAssignment.id, PhotographerAssignment.photographer_id,
+                   PhotographerAssignment.event_type, PhotographerAssignment.event_id,
+                   PhotographerAssignment.status, PhotographerAssignment.shoot_date]
+    column_filters = [PhotographerAssignment.status, PhotographerAssignment.event_type]
 
 
 class UserSubscriptionAdmin(ModelView, model=UserSubscription):
@@ -185,7 +224,9 @@ def register_views(admin_app, vendor_admin_app, gift_admin_app):
     # Main admin — everything
     for view in [
         UserAdmin, CoupleWebsiteAdmin, InvitationRSVPAdmin,
-        GalleryCategoryAdmin, GalleryImageAdmin, GuestSelfieMatchAdmin,
+        GalleryCategoryAdmin, GalleryAlbumAdmin, GalleryImageAdmin,
+        GalleryMediaCommentAdmin, GuestSelfieMatchAdmin,
+        EventPermissionAdmin, PhotographerProfileAdmin, PhotographerAssignmentAdmin,
         UserSubscriptionAdmin, TransactionAdmin, BirthdayPageAdmin,
         VendorCategoryAdmin, VendorWebsiteAdmin, VendorEnquiryAdmin,
         VendorReviewAdmin, SubscriptionPlanAdmin, VendorSubscriptionAdmin,

@@ -83,6 +83,28 @@ class Settings(BaseSettings):
     TWILIO_AUTH_TOKEN: str = ""
     TWILIO_FROM_NUMBER: str = ""
 
+    # ── S3 / Cloudflare R2 storage ────────────────────────────────────────────
+    # Cloudflare R2 is S3-compatible. Set STORAGE_BACKEND="s3" to enable.
+    # For local dev, leave STORAGE_BACKEND="local" (files go to MEDIA_ROOT).
+    STORAGE_BACKEND: str = "local"          # "local" | "s3"
+    S3_BUCKET_NAME: str = ""
+    S3_REGION: str = "auto"                 # "auto" for R2, e.g. "ap-south-1" for AWS
+    S3_ACCESS_KEY_ID: str = ""
+    S3_SECRET_ACCESS_KEY: str = ""
+    S3_ENDPOINT_URL: str = ""               # R2: https://<acct>.r2.cloudflarestorage.com
+    S3_CDN_URL: str = ""                    # Public CDN base URL (e.g. https://cdn.planazo.ai)
+    S3_PRESIGN_EXPIRY_SECONDS: int = 3600   # 1 hour for presigned upload URLs
+
+    # ── OpenAI (AI recommendations + photo search) ────────────────────────────
+    OPENAI_API_KEY: str = ""
+    OPENAI_MODEL: str = "gpt-4o-mini"
+    OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-small"
+
+    # ── WhatsApp Business API ─────────────────────────────────────────────────
+    WHATSAPP_API_URL: str = ""
+    WHATSAPP_API_TOKEN: str = ""
+    WHATSAPP_PHONE_NUMBER_ID: str = ""
+
     # ── Computed ─────────────────────────────────────────────────────────────
     @property
     def access_token_expire(self) -> timedelta:

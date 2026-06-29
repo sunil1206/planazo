@@ -11,7 +11,13 @@ from app.models.vendor import (
     VendorPackage, VendorPortfolioImage, VendorEnquiry, VendorReview,
     SubscriptionPlan, VendorSubscription, VendorFavorite,
 )
-from app.models.gallery import GalleryCategory, GalleryImage, GuestSelfieMatch
+from app.models.gallery import (
+    GalleryCategory, GalleryAlbum, GalleryImage,
+    GalleryMediaLike, GalleryMediaComment, GuestSelfieMatch,
+)
+from app.models.permissions import (
+    EventPermission, PhotographerProfile, PhotographerAssignment,
+)
 from app.models.gift import (
     GiftSeller, GiftCategory, GiftProduct, ProductImage, ProductVariant,
     ProductReview, Cart, CartItem, GiftOrder, MarketplaceOrder,
@@ -31,7 +37,9 @@ __all__ = [
     "VendorCategory", "VendorThemePreset", "VendorWebsite", "PortfolioCategory",
     "VendorPackage", "VendorPortfolioImage", "VendorEnquiry", "VendorReview",
     "SubscriptionPlan", "VendorSubscription", "VendorFavorite",
-    "GalleryCategory", "GalleryImage", "GuestSelfieMatch",
+    "GalleryCategory", "GalleryAlbum", "GalleryImage",
+    "GalleryMediaLike", "GalleryMediaComment", "GuestSelfieMatch",
+    "EventPermission", "PhotographerProfile", "PhotographerAssignment",
     "GiftSeller", "GiftCategory", "GiftProduct", "ProductImage", "ProductVariant",
     "ProductReview", "Cart", "CartItem", "GiftOrder", "MarketplaceOrder",
     "MarketplaceOrderItem", "ScheduledDelivery",

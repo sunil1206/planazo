@@ -29,9 +29,11 @@ class User(Base):
     subscription       = relationship("UserSubscription", back_populates="account",      uselist=False)
     vendor_favorites   = relationship("VendorFavorite",   back_populates="user",         cascade="all, delete-orphan")
     birthday_pages     = relationship("BirthdayPage",     back_populates="owner",        cascade="all, delete-orphan")
-    seller_profile     = relationship("GiftSeller",       back_populates="user",         uselist=False)
-    marketplace_orders = relationship("MarketplaceOrder", back_populates="user")
-    transactions       = relationship("Transaction",      back_populates="account")
+    seller_profile       = relationship("GiftSeller",          back_populates="user",         uselist=False)
+    marketplace_orders   = relationship("MarketplaceOrder",    back_populates="user")
+    transactions         = relationship("Transaction",         back_populates="account")
+    event_permissions    = relationship("EventPermission",     back_populates="user",         foreign_keys="EventPermission.user_id",  cascade="all, delete-orphan")
+    photographer_profile = relationship("PhotographerProfile", back_populates="user",         uselist=False, cascade="all, delete-orphan")
 
     # ── Properties ───────────────────────────────────────────────────────────
     @property
@@ -41,6 +43,10 @@ class User(Base):
     @property
     def is_vendor(self):
         return self.role == "VENDOR"
+
+    @property
+    def is_photographer(self):
+        return self.role == "PHOTOGRAPHER"
 
     def __repr__(self):
         return f"<User {self.email}>"
