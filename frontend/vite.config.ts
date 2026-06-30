@@ -7,8 +7,7 @@ export default defineConfig({
 
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./src"),
-      // Legacy pages use "@/" pointing at the root — keep both working
+      "@": path.resolve(__dirname, "."),
       "@components": path.resolve(__dirname, "./components"),
       "@lib":        path.resolve(__dirname, "./lib"),
       "@stores":     path.resolve(__dirname, "./stores"),
