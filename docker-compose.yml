@@ -36,9 +36,10 @@ services:
       context: ./app
       dockerfile: Dockerfile
     restart: unless-stopped
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2
     volumes:
       - ./app:/workspace/app
+      - ./services:/workspace/services
       - media_files:/workspace/media
     env_file: .env
     ports:
@@ -102,6 +103,7 @@ services:
     command: celery -A app.workers.celery_app worker --loglevel=info --concurrency=4
     volumes:
       - ./app:/workspace/app
+      - ./services:/workspace/services
       - media_files:/workspace/media
     env_file: .env
     depends_on:
@@ -118,6 +120,7 @@ services:
     command: celery -A app.workers.celery_app beat --loglevel=info
     volumes:
       - ./app:/workspace/app
+      - ./services:/workspace/services
     env_file: .env
     depends_on:
       postgres:

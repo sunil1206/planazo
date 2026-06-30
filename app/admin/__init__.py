@@ -8,7 +8,7 @@ Original sites:
 
 New: single SQLAdmin app, three AdminAuth-protected mount points.
 """
-from app.admin.main import admin, vendor_admin, gift_admin
+from app.admin.main import create_admin_instances
 from app.admin.views import register_views
 
-__all__ = ["admin", "vendor_admin", "gift_admin", "register_views"]
+__all__ = ["create_admin_instances", "register_views"]

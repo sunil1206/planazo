@@ -53,30 +53,31 @@ class PlanazoAdminAuth(AuthenticationBackend):
         return "admin_user" in request.session
 
 
-# ── Three Admin instances ─────────────────────────────────────────────────────
+# ── Admin factory — called after the FastAPI app is created ──────────────────
 
-_auth = PlanazoAdminAuth(secret_key=settings.SECRET_KEY)
+def create_admin_instances(app):
+    """Create and return the three Admin instances bound to the given app."""
+    _auth = PlanazoAdminAuth(secret_key=settings.SECRET_KEY)
 
-# Main wedding admin — mounts at /admin
-admin = Admin(
-    engine=engine,
-    title="Planazo Admin",
-    base_url="/admin",
-    authentication_backend=_auth,
-)
-
-# Vendor admin — mounts at /vendor-admin
-vendor_admin = Admin(
-    engine=engine,
-    title="Vendor Admin",
-    base_url="/vendor-admin",
-    authentication_backend=_auth,
-)
-
-# Gift admin — mounts at /gift-admin
-gift_admin = Admin(
-    engine=engine,
-    title="Gift Admin",
-    base_url="/gift-admin",
-    authentication_backend=_auth,
-)
+    main_admin = Admin(
+        app=app,
+        engine=engine,
+        title="Planazo Admin",
+        base_url="/admin",
+        authentication_backend=_auth,
+    )
+    v_admin = Admin(
+        app=app,
+        engine=engine,
+        title="Vendor Admin",
+        base_url="/vendor-admin",
+        authentication_backend=_auth,
+    )
+    g_admin = Admin(
+        app=app,
+        engine=engine,
+        title="Gift Admin",
+        base_url="/gift-admin",
+        authentication_backend=_auth,
+    )
+    return main_admin, v_admin, g_admin

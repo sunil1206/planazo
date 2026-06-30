@@ -29,7 +29,7 @@ from app.routers.photographer import router as photographer_router
 # Seller dashboard + payment webhooks
 from app.routers.gifts_seller import router as gifts_seller_router
 from app.routers.razorpay_webhook import router as razorpay_webhook_router
-from app.admin.main import admin, vendor_admin, gift_admin
+from app.admin.main import create_admin_instances
 from app.admin.views import register_views
 
 
@@ -47,6 +47,12 @@ if settings.SENTRY_DSN:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Create all tables on first boot (idempotent — skips existing tables)
+    import app.models  # noqa: F401 — register all models onto Base.metadata
+    from app.database.base import Base
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
     # Startup checks
     import redis.asyncio as aioredis
     try:
@@ -115,10 +121,8 @@ def create_app() -> FastAPI:
         app.include_router(router)
 
     # ── Admin panels ───────────────────────────────────────────────────────────
+    admin, vendor_admin, gift_admin = create_admin_instances(app)
     register_views(admin, vendor_admin, gift_admin)
-    admin.mount_to(app)           # /admin
-    vendor_admin.mount_to(app)    # /vendor-admin
-    gift_admin.mount_to(app)      # /gift-admin
 
     # ── Static / media ─────────────────────────────────────────────────────────
     media_root = settings.MEDIA_ROOT

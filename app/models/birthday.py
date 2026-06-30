@@ -68,14 +68,14 @@ class BirthdayStory(Base):
 class BirthdayWish(Base):
     __tablename__ = "birthday_birthdaywish"
 
-    id           = Column(Integer, primary_key=True)
-    page_id      = Column(Integer, ForeignKey("birthday_birthdaypage.id", ondelete="CASCADE"), nullable=False)
-    name         = Column(String(255), nullable=False)
-    relationship = Column(String(255), default="")
-    image        = Column(String(200), nullable=True)
-    message      = Column(Text, nullable=False)
-    verified     = Column(Boolean, default=False)
-    created_at   = Column(DateTime(timezone=True), server_default=func.now())
+    id                = Column(Integer, primary_key=True)
+    page_id           = Column(Integer, ForeignKey("birthday_birthdaypage.id", ondelete="CASCADE"), nullable=False)
+    name              = Column(String(255), nullable=False)
+    relation_to_bday  = Column(String(255), default="")
+    image             = Column(String(200), nullable=True)
+    message           = Column(Text, nullable=False)
+    verified          = Column(Boolean, default=False)
+    created_at        = Column(DateTime(timezone=True), server_default=func.now())
 
     page = relationship("BirthdayPage", back_populates="wishes")
 

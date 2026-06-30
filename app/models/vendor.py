@@ -1,4 +1,4 @@
-from sqlalchemy import (
+﻿from sqlalchemy import (
     Column, Integer, String, Boolean, DateTime, Text,
     ForeignKey, Numeric, UniqueConstraint, JSON
 )
@@ -177,7 +177,7 @@ class VendorSubscription(Base):
 
     id                       = Column(Integer, primary_key=True)
     vendor_id                = Column(Integer, ForeignKey("vendor_websites.id", ondelete="CASCADE"), unique=True, nullable=False)
-    plan_id                  = Column(Integer, ForeignKey("vendor_subscription_plans.id", ondelete="PROTECT"), nullable=False)
+    plan_id                  = Column(Integer, ForeignKey("vendor_subscription_plans.id", ondelete="RESTRICT"), nullable=False)
     status                   = Column(String(10), default="ACTIVE")
     is_yearly                = Column(Boolean, default=False)
     razorpay_subscription_id = Column(String(100), default="")

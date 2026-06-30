@@ -22,7 +22,7 @@ from app.database.base import get_db
 from app.core.dependencies import get_current_user
 from app.models.user import User
 from app.models.gift import GiftSeller, GiftProduct, GiftOrder, MarketplaceOrder, MarketplaceOrderItem
-from app.schemas.gifts import (
+from app.schemas.gift import (
     GiftProductCreate, GiftProductRead,
     GiftOrderRead, MarketplaceOrderRead,
 )
