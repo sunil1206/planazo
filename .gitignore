@@ -1,3 +1,5 @@
+.env
+
 # --- Frontend (Next.js) ---
 frontend/node_modules/
 frontend/.next/
