@@ -81,11 +81,19 @@ def decode_token(token: str) -> Optional[dict]:
         return None
 
 
+# def token_response(user) -> dict:
+#     """Build the standard { access, refresh, user } dict returned by auth endpoints."""
+#     from app.schemas.user import UserOut  # avoid circular
+#     return {
+#         "access":  create_access_token(user.id, user.role),
+#         "refresh": create_refresh_token(user.id, user.role),
+#         "user":    UserOut.model_validate(user).model_dump(),
+#     }
 def token_response(user) -> dict:
     """Build the standard { access, refresh, user } dict returned by auth endpoints."""
-    from app.schemas.user import UserOut  # avoid circular
+    from app.schemas.user import UserPublic
     return {
-        "access":  create_access_token(user.id, user.role),
+        "access": create_access_token(user.id, user.role),
         "refresh": create_refresh_token(user.id, user.role),
-        "user":    UserOut.model_validate(user).model_dump(),
+        "user": UserPublic.model_validate(user).model_dump(),
     }
