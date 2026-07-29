@@ -24,6 +24,15 @@ async def get_current_user(
     user = result.scalar_one_or_none()
     if not user or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or inactive")
+
+    # "tv" (token_version) lets logout/password-change revoke every
+    # previously-issued token at once. Tokens minted before this claim
+    # existed have no "tv" — treated as version 0 so they still work.
+    token_version = payload.get("tv", 0)
+    if token_version != (user.token_version or 0):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
+                            detail="Session has been revoked — please log in again",
+                            headers={"WWW-Authenticate": "Bearer"})
     return user
 
 

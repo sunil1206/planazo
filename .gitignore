@@ -1,22 +1,25 @@
 .env
 
-# --- Frontend (Next.js) ---
+# --- Frontend (Vite + React) ---
 frontend/node_modules/
-frontend/.next/
-frontend/out/
+frontend/dist/
+frontend/.vite/
 frontend/build/
 frontend/.env*.local
+# --- Frontend (stale Next.js patterns — harmless to keep, nothing matches) ---
+frontend/.next/
+frontend/out/
 
-# --- Backend (Django/Python) ---
-backend/__pycache__/
-backend/*.py[cod]
-backend/*$py.class
-backend/.env
-backend/venv/
-backend/env/
-backend/media/
-backend/static/
-backend/db.sqlite3
+# --- Backend (FastAPI/Python) — repo-wide, not just a backend/ subfolder ---
+__pycache__/
+*.py[cod]
+*$py.class
+app/media/
+app/staticfiles/
+*.sqlite3
+.venv/
+venv/
+env/
 
 # --- OS / Tools ---
 .DS_Store

@@ -17,6 +17,7 @@ Endpoints:
   POST /api/vendors/{slug}/review/
   GET/POST/DELETE /api/vendors/favorites/
 """
+import logging
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -40,8 +41,42 @@ from app.schemas.vendor import (
     EnquiryCreate, EnquiryRead, ReviewCreate, ReviewRead,
     VendorFavoriteRead,
 )
+from app.schemas.planning import VendorSearchResponse, VendorSearchResult
+from app.services.vendor_search_service import VendorSearchService
+from app.utils.pagination import PageParams, page_params
 
 router = APIRouter(prefix="/api/vendors", tags=["vendors"])
+
+
+# ── Find Vendors (Planning Suite) — enhanced search ──────────────────────────
+# Placed before "/{slug}/" further down so "search" is never swallowed as a slug.
+
+@router.get("/search/", response_model=VendorSearchResponse)
+async def search_vendors(
+    category: Optional[str] = Query(None),
+    city: Optional[str] = Query(None),
+    location: Optional[str] = Query(None, description="Matches city or address"),
+    min_price: Optional[float] = Query(None, ge=0),
+    max_price: Optional[float] = Query(None, ge=0),
+    rating: Optional[float] = Query(None, ge=0, le=5, description="Minimum average approved-review rating"),
+    verified: Optional[bool] = Query(None),
+    featured: Optional[bool] = Query(None),
+    availability: Optional[str] = Query(
+        None, description="Accepted for forward-compatibility; not yet backed by a vendor calendar model"
+    ),
+    params: PageParams = Depends(page_params),
+    db: AsyncSession = Depends(get_db),
+):
+    svc = VendorSearchService(db)
+    result = await svc.search(
+        category=category, city=city, location=location,
+        min_price=min_price, max_price=max_price, min_rating=rating,
+        verified=verified, featured=featured, params=params,
+    )
+    return {
+        **result,
+        "items": [VendorSearchResult.model_validate(v) for v in result["items"]],
+    }
 
 
 # ── Reference data ────────────────────────────────────────────────────────────
@@ -371,6 +406,16 @@ async def create_enquiry(
     db.add(enq)
     await db.commit()
     await db.refresh(enq)
+
+    if vendor.email:
+        try:
+            from app.workers.tasks.email_tasks import send_enquiry_notification_task
+            send_enquiry_notification_task.delay(
+                vendor_email=vendor.email, enquiry_name=enq.name, vendor_slug=vendor.slug,
+            )
+        except Exception:
+            logging.getLogger("planazo").warning("Could not queue enquiry notification for %s", slug, exc_info=True)
+
     return enq
 
 

@@ -6,13 +6,18 @@ Endpoints:
   POST /api/payment/subscription/create/
   POST /api/payment/subscription/verify/
   GET  /api/payment/transactions/
-  POST /api/payment/razorpay-webhook/
+
+Note: the Razorpay *webhook* endpoint lives only in app/routers/razorpay_webhook.py
+(POST /api/webhooks/razorpay/). A duplicate, weaker webhook handler used to live
+here too (comparing signatures with plain `!=` instead of `hmac.compare_digest`,
+and only updating `Transaction`, not `GiftOrder`/`MarketplaceOrder`) — it's been
+removed. Point your Razorpay dashboard's webhook URL at /api/webhooks/razorpay/.
 """
 import hmac
 import hashlib
 
 import razorpay
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -104,7 +109,7 @@ async def verify_subscription_payment(
         payload.encode(),
         hashlib.sha256,
     ).hexdigest()
-    if expected != body.razorpay_signature:
+    if not hmac.compare_digest(expected, body.razorpay_signature):
         raise HTTPException(400, "Invalid payment signature")
 
     # Fetch Razorpay order details to determine plan
@@ -160,35 +165,3 @@ async def list_transactions(
         .order_by(Transaction.created_at.desc())
     )
     return result.scalars().all()
-
-
-# ── Razorpay webhook ──────────────────────────────────────────────────────────
-
-@router.post("/razorpay-webhook/")
-async def razorpay_webhook(request: Request, db: AsyncSession = Depends(get_db)):
-    body = await request.body()
-    sig = request.headers.get("x-razorpay-signature", "")
-    expected = hmac.new(
-        settings.RAZORPAY_WEBHOOK_SECRET.encode(), body, hashlib.sha256
-    ).hexdigest()
-    if expected != sig:
-        raise HTTPException(400, "Invalid webhook signature")
-
-    import json
-    payload = json.loads(body)
-    event = payload.get("event", "")
-
-    if event == "payment.captured":
-        # Update transaction status if needed
-        payment = payload["payload"]["payment"]["entity"]
-        result = await db.execute(
-            select(Transaction).where(
-                Transaction.razorpay_payment_id == payment["id"]
-            )
-        )
-        txn = result.scalar_one_or_none()
-        if txn and txn.status != "SUCCESS":
-            txn.status = "SUCCESS"
-            await db.commit()
-
-    return {"status": "ok"}

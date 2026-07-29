@@ -115,6 +115,18 @@ async def update_page(
     return page
 
 
+@router.delete("/pages/{slug}/", status_code=204)
+async def delete_page(
+    slug: str,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    page = await get_page_or_404(slug, db)
+    assert_owner(page, user)
+    await db.delete(page)
+    await db.commit()
+
+
 # ── Events ────────────────────────────────────────────────────────────────────
 
 @router.post("/pages/{slug}/events/", response_model=BirthdayEventRead, status_code=201)

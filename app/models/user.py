@@ -19,6 +19,10 @@ class User(Base):
     avatar_url   = Column(String(200), nullable=True)
     is_active    = Column(Boolean, default=True)
     is_staff     = Column(Boolean, default=False)
+    # Bumped on logout / password change to invalidate every previously-issued
+    # access + refresh JWT at once (see core/security.py + core/dependencies.py).
+    # Requires alembic migration 0002 on any database that already has this table.
+    token_version = Column(Integer, nullable=False, default=0, server_default="0")
     created_at   = Column(DateTime(timezone=True), server_default=func.now())
     updated_at   = Column(DateTime(timezone=True), onupdate=func.now())
 
@@ -29,6 +33,7 @@ class User(Base):
     subscription       = relationship("UserSubscription", back_populates="account",      uselist=False)
     vendor_favorites   = relationship("VendorFavorite",   back_populates="user",         cascade="all, delete-orphan")
     birthday_pages     = relationship("BirthdayPage",     back_populates="owner",        cascade="all, delete-orphan")
+    custom_events      = relationship("CustomEvent",      back_populates="owner",        cascade="all, delete-orphan")
     seller_profile       = relationship("GiftSeller",          back_populates="user",         uselist=False)
     marketplace_orders   = relationship("MarketplaceOrder",    back_populates="user")
     transactions         = relationship("Transaction",         back_populates="account")

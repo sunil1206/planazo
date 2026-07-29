@@ -87,29 +87,17 @@ services:
     networks:
       - internal
 
-  # ── Next.js (production build) ────────────────────────────────────────────────
+  # ── Frontend — Vite + React SPA, built to static files + served by nginx ──────
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile.prod
       args:
-        NEXT_PUBLIC_API_URL:          https://planazo.in
-        NEXT_PUBLIC_FASTAPI_URL:      https://planazo.in
-        NEXT_PUBLIC_RAZORPAY_KEY_ID:  ${NEXT_PUBLIC_RAZORPAY_KEY_ID}
+        VITE_API_URL:          https://planazo.in
+        VITE_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
     restart: always
-    environment:
-      NODE_ENV:              production
-      NEXT_PUBLIC_API_URL:   https://planazo.in
-      INTERNAL_API_URL:      http://api:8000
-      INTERNAL_FAST_URL:     http://fastapi:8001
-      NEXTAUTH_URL:          https://planazo.in
-      NEXTAUTH_SECRET:       ${NEXTAUTH_SECRET}
-      AUTH_SECRET:           ${NEXTAUTH_SECRET}
-      GOOGLE_CLIENT_ID:      ${GOOGLE_CLIENT_ID}
-      GOOGLE_CLIENT_SECRET:  ${GOOGLE_CLIENT_SECRET}
     depends_on:
       - api
-      - fastapi
     networks:
       - internal
 

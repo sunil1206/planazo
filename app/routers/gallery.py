@@ -9,6 +9,7 @@ Endpoints:
   POST /api/gallery/selfie-match/
   GET  /api/gallery/selfie-match/{id}/
 """
+import logging
 import os
 import secrets
 import json
@@ -130,6 +131,18 @@ async def upload_gallery_image(
     db.add(image)
     await db.commit()
     await db.refresh(image)
+
+    try:
+        from app.workers.tasks.image_tasks import generate_thumbnails_task, compute_face_embedding_task
+        generate_thumbnails_task.delay(image_id=image.id, rel_path=rel_path)
+        compute_face_embedding_task.delay(image_id=image.id, rel_path=rel_path)
+    except Exception:
+        # Thumbnails/face-embedding are best-effort background enrichment —
+        # a Celery/Redis hiccup should never fail the upload itself.
+        logging.getLogger("planazo").warning(
+            "Could not queue thumbnail/face-embedding tasks for image %s", image.id, exc_info=True
+        )
+
     return image
 
 
