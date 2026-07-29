@@ -28,6 +28,14 @@ from app.models.birthday import (
     BirthdayRSVP, BirthdayCountdown,
 )
 from app.models.payment import UserSubscription, Transaction
+from app.models.custom_event import (
+    CustomEvent, ChecklistItem, BudgetItem, EventNote, EventGallery, EventFile, EventMember,
+)
+from app.models.planning import (
+    PlanningChecklistItem, PlanningBudgetItem,
+    Guest as PlanningGuest,
+    VendorBooking as PlanningVendorBooking,
+)
 
 __all__ = [
     "User",
@@ -46,4 +54,6 @@ __all__ = [
     "BirthdayPage", "BirthdayEvent", "BirthdayStory", "BirthdayWish",
     "BirthdayRSVP", "BirthdayCountdown",
     "UserSubscription", "Transaction",
+    "CustomEvent", "ChecklistItem", "BudgetItem", "EventNote", "EventGallery", "EventFile", "EventMember",
+    "PlanningChecklistItem", "PlanningBudgetItem", "PlanningGuest", "PlanningVendorBooking",
 ]

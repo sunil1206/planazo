@@ -52,23 +52,25 @@ def _now() -> datetime:
     return datetime.now(tz=timezone.utc)
 
 
-def create_access_token(user_id: int, role: str) -> str:
+def create_access_token(user_id: int, role: str, token_version: int = 0) -> str:
     expire = _now() + settings.access_token_expire
     payload = {
         "sub":  str(user_id),
         "role": role,
         "type": "access",
+        "tv":   token_version,
         "exp":  expire,
     }
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=ALGORITHM)
 
 
-def create_refresh_token(user_id: int, role: str) -> str:
+def create_refresh_token(user_id: int, role: str, token_version: int = 0) -> str:
     expire = _now() + settings.refresh_token_expire
     payload = {
         "sub":  str(user_id),
         "role": role,
         "type": "refresh",
+        "tv":   token_version,
         "exp":  expire,
     }
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=ALGORITHM)
@@ -92,8 +94,9 @@ def decode_token(token: str) -> Optional[dict]:
 def token_response(user) -> dict:
     """Build the standard { access, refresh, user } dict returned by auth endpoints."""
     from app.schemas.user import UserPublic
+    tv = getattr(user, "token_version", 0) or 0
     return {
-        "access": create_access_token(user.id, user.role),
-        "refresh": create_refresh_token(user.id, user.role),
+        "access": create_access_token(user.id, user.role, tv),
+        "refresh": create_refresh_token(user.id, user.role, tv),
         "user": UserPublic.model_validate(user).model_dump(),
     }

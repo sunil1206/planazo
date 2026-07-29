@@ -13,6 +13,7 @@ Endpoints:
   GET/POST      /api/invitations/websites/{slug}/photos/
   POST          /api/invitations/websites/{slug}/visit/
 """
+import logging
 import secrets
 from typing import List, Optional
 
@@ -25,7 +26,7 @@ from app.database.base import get_db
 from app.models.invitation import (
     CoupleWebsite, BrideGroom, BrideGroomStory, BrideGroomEvent,
     WeddingCountdown, InvitationRSVP, Makeyourwish, PageVisit,
-    WeddingGalleryPhoto,
+    WeddingGalleryPhoto, WeddingVendor,
 )
 from app.models.user import User
 from app.core.dependencies import get_current_user, get_current_user_optional, require_role
@@ -38,6 +39,7 @@ from app.schemas.invitation import (
     RSVPCreate, RSVPRead,
     WishCreate, WishRead,
     WeddingPhotoRead,
+    WeddingVendorAdd, WeddingVendorRead,
 )
 
 router = APIRouter(prefix="/api/invitations", tags=["invitations"])
@@ -121,6 +123,18 @@ async def update_website(
     await db.commit()
     await db.refresh(website)
     return website
+
+
+@router.delete("/websites/{slug}/", status_code=204)
+async def delete_website(
+    slug: str,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    website = await get_website_or_404(slug, db)
+    assert_owner(website, user)
+    await db.delete(website)
+    await db.commit()
 
 
 # ── BrideGroom ────────────────────────────────────────────────────────────────
@@ -347,7 +361,11 @@ async def create_rsvp(
     body: RSVPCreate,
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(select(CoupleWebsite).where(CoupleWebsite.slug == slug))
+    result = await db.execute(
+        select(CoupleWebsite)
+        .where(CoupleWebsite.slug == slug)
+        .options(selectinload(CoupleWebsite.account))
+    )
     website = result.scalar_one_or_none()
     if not website:
         raise HTTPException(404, "Website not found")
@@ -355,6 +373,17 @@ async def create_rsvp(
     db.add(rsvp)
     await db.commit()
     await db.refresh(rsvp)
+
+    if website.account and website.account.email:
+        try:
+            from app.workers.tasks.email_tasks import send_rsvp_notification_task
+            send_rsvp_notification_task.delay(
+                owner_email=website.account.email, rsvp_name=rsvp.name, website_slug=website.slug,
+            )
+        except Exception:
+            # Celery/Redis being unavailable should never fail the RSVP submission itself.
+            logging.getLogger("planazo").warning("Could not queue RSVP notification for %s", slug, exc_info=True)
+
     return rsvp
 
 
@@ -387,6 +416,123 @@ async def create_wish(
     await db.commit()
     await db.refresh(wish)
     return wish
+
+
+# ── Wedding Vendors ───────────────────────────────────────────────────────────
+
+@router.get("/websites/{slug}/vendors/", response_model=List[WeddingVendorRead])
+async def list_wedding_vendors(slug: str, db: AsyncSession = Depends(get_db)):
+    website = await get_website_or_404(slug, db)
+    result = await db.execute(
+        select(WeddingVendor).where(WeddingVendor.website_id == website.id)
+    )
+    return result.scalars().all()
+
+
+@router.post("/websites/{slug}/vendors/", response_model=WeddingVendorRead, status_code=201)
+async def add_wedding_vendor(
+    slug: str,
+    body: WeddingVendorAdd,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    website = await get_website_or_404(slug, db)
+    assert_owner(website, user)
+    exists = await db.execute(
+        select(WeddingVendor).where(
+            WeddingVendor.website_id == website.id,
+            WeddingVendor.vendor_id == body.vendor_id,
+        )
+    )
+    if exists.scalar_one_or_none():
+        raise HTTPException(400, "Vendor already added")
+    wv = WeddingVendor(**body.model_dump(), website_id=website.id)
+    db.add(wv)
+    await db.commit()
+    await db.refresh(wv)
+    return wv
+
+
+@router.delete("/websites/{slug}/vendors/{vendor_row_id}/", status_code=204)
+async def remove_wedding_vendor(
+    slug: str,
+    vendor_row_id: int,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    website = await get_website_or_404(slug, db)
+    assert_owner(website, user)
+    result = await db.execute(
+        select(WeddingVendor).where(
+            WeddingVendor.id == vendor_row_id,
+            WeddingVendor.website_id == website.id,
+        )
+    )
+    wv = result.scalar_one_or_none()
+    if not wv:
+        raise HTTPException(404, "Not found")
+    await db.delete(wv)
+    await db.commit()
+
+
+# ── Wedding Gallery Photos ─────────────────────────────────────────────────────
+
+@router.get("/websites/{slug}/photos/", response_model=List[WeddingPhotoRead])
+async def list_wedding_photos(
+    slug: str,
+    tag: Optional[str] = None,
+    db: AsyncSession = Depends(get_db),
+):
+    website = await get_website_or_404(slug, db)
+    q = select(WeddingGalleryPhoto).where(WeddingGalleryPhoto.website_id == website.id)
+    if tag:
+        q = q.where(WeddingGalleryPhoto.tag == tag)
+    result = await db.execute(q)
+    return result.scalars().all()
+
+
+@router.post("/websites/{slug}/photos/", response_model=WeddingPhotoRead, status_code=201)
+async def add_wedding_photo(
+    slug: str,
+    image: str,
+    tag: str = "other",
+    caption: str = "",
+    thumbnail: Optional[str] = None,
+    uploader_name: str = "Guest",
+    user: User = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db),
+):
+    website = await get_website_or_404(slug, db)
+    photo = WeddingGalleryPhoto(
+        website_id=website.id, image=image, thumbnail=thumbnail,
+        tag=tag, caption=caption, uploader_name=uploader_name,
+    )
+    db.add(photo)
+    await db.commit()
+    await db.refresh(photo)
+    return photo
+
+
+@router.delete("/websites/{slug}/photos/{photo_id}/", status_code=204)
+async def delete_wedding_photo(
+    slug: str,
+    photo_id: int,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    website = await get_website_or_404(slug, db)
+    assert_owner(website, user)
+    result = await db.execute(
+        select(WeddingGalleryPhoto).where(
+            WeddingGalleryPhoto.id == photo_id,
+            WeddingGalleryPhoto.website_id == website.id,
+        )
+    )
+    photo = result.scalar_one_or_none()
+    if not photo:
+        raise HTTPException(404, "Photo not found")
+    await db.delete(photo)
+    await db.commit()
 
 
 # ── Page visit tracking ───────────────────────────────────────────────────────

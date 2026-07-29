@@ -5,7 +5,11 @@ on:
     branches: [main]
 
 jobs:
-  test:
+  # tests/ (pytest + pytest-asyncio + an in-memory SQLite DB — see
+  # tests/conftest.py) covers the Planning Suite end-to-end: repositories,
+  # services, API/auth/ownership. Everything else in the app still only has
+  # the import-sanity check below — see BACKEND_AUDIT.md for what's untested.
+  smoke-test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -13,21 +17,25 @@ jobs:
         uses: actions/setup-python@v5
         with: { python-version: "3.12" }
       - name: Install backend deps
-        run: pip install -r backend/requirements.txt
-      - name: Run Django tests
+        run: pip install -r app/requirements.txt
+      - name: Import sanity check
+        working-directory: .
         run: |
-          cd backend
-          python manage.py test --settings=core.settings.dev
+          PYTHONPATH=. python -c "import app.main; print('app.main imported OK')"
         env:
-          DB_HOST: localhost
-          DB_NAME: snapshare_test
-          DB_USER: postgres
-          DB_PASSWORD: postgres
-          REDIS_URL: redis://localhost:6379/0
-          DJANGO_SECRET_KEY: test-secret-key
+          DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/postgres
+          SECRET_KEY: ci-smoke-test-secret
+          SENTRY_DSN: ""
+      - name: Run test suite
+        working-directory: .
+        run: pytest tests/ -v
+        env:
+          DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/postgres
+          SECRET_KEY: ci-smoke-test-secret
+          SENTRY_DSN: ""
 
   deploy:
-    needs: test
+    needs: smoke-test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -38,11 +46,15 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key:      ${{ secrets.EC2_SSH_KEY }}
           script: |
-            cd /opt/snapshare
+            # NOTE: confirm this matches wherever the repo is actually cloned
+            # on the server (per DEPLOYMENT_HANDBOOK.md §8.2 folder layout).
+            cd ~/apps/planazo
             git pull origin main
             cp .env.production .env
-            docker compose pull
-            docker compose up -d --build
-            docker compose exec -T django python manage.py migrate --noinput
-            docker compose exec -T django python manage.py collectstatic --noinput
+            docker compose -f docker-compose.prod.yml pull
+            docker compose -f docker-compose.prod.yml up -d --build
+            # Base tables are created by SQLAlchemy's create_all() in app/main.py's
+            # lifespan hook on first boot; alembic upgrade head applies any
+            # incremental migrations layered on top (see app/alembic/versions/).
+            docker compose -f docker-compose.prod.yml exec -T api alembic upgrade head
             echo "Deployed successfully"

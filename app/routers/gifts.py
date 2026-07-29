@@ -37,7 +37,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.base import get_db
 from app.models.gift import (
-    GiftCategory, GiftProduct, ProductReview, Cart, CartItem,
+    GiftCategory, GiftProduct, ProductVariant, ProductReview, Cart, CartItem,
     GiftOrder, MarketplaceOrder, MarketplaceOrderItem, ScheduledDelivery,
     GiftSeller,
 )
@@ -153,6 +153,8 @@ async def create_gift_order(
     product = result.scalar_one_or_none()
     if not product:
         raise HTTPException(404, "Product not found")
+    if product.stock <= 0:
+        raise HTTPException(400, "This product is out of stock")
 
     amount_paise = int(product.price * 100)
     rz = get_razorpay()
@@ -188,15 +190,27 @@ async def verify_gift_order(
     expected = hmac.new(
         settings.RAZORPAY_KEY_SECRET.encode(), payload.encode(), hashlib.sha256
     ).hexdigest()
-    if expected != body.razorpay_signature:
+    if not hmac.compare_digest(expected, body.razorpay_signature):
         raise HTTPException(400, "Invalid payment signature")
 
     result = await db.execute(select(GiftOrder).where(GiftOrder.id == order_id))
     order = result.scalar_one_or_none()
     if not order:
         raise HTTPException(404, "Order not found")
+    if order.status == "PAID":
+        return {"detail": "Payment already verified"}
+
     order.status = "PAID"
     order.razorpay_payment_id = body.razorpay_payment_id
+
+    # Decrement stock now that money has actually changed hands — checking
+    # stock at order-creation time isn't enough since two people can create
+    # a pending order for the last unit; this is the real point of no return.
+    product_result = await db.execute(select(GiftProduct).where(GiftProduct.id == order.product_id))
+    product = product_result.scalar_one_or_none()
+    if product:
+        product.stock = max(0, product.stock - 1)
+
     await db.commit()
     return {"detail": "Payment verified"}
 
@@ -229,6 +243,24 @@ async def get_cart(
     return await _get_or_create_cart(user, db)
 
 
+async def _available_stock(db: AsyncSession, product_id: int, variant_id: Optional[int]) -> tuple:
+    """Returns (available_stock, product) — checks the variant's stock if one
+    was selected, otherwise the product's own stock."""
+    product_result = await db.execute(select(GiftProduct).where(GiftProduct.id == product_id))
+    product = product_result.scalar_one_or_none()
+    if not product or not product.is_available:
+        raise HTTPException(404, "Product not found")
+
+    if variant_id:
+        variant_result = await db.execute(select(ProductVariant).where(ProductVariant.id == variant_id))
+        variant = variant_result.scalar_one_or_none()
+        if not variant or variant.product_id != product.id or not variant.is_active:
+            raise HTTPException(404, "Variant not found")
+        return variant.stock, product
+
+    return product.stock, product
+
+
 @router.post("/cart/", response_model=CartRead)
 async def add_to_cart(
     body: CartItemCreate,
@@ -236,6 +268,9 @@ async def add_to_cart(
     db: AsyncSession = Depends(get_db),
 ):
     cart = await _get_or_create_cart(user, db)
+
+    available, _product = await _available_stock(db, body.product_id, body.variant_id)
+
     # Check if item already in cart
     result = await db.execute(
         select(CartItem).where(
@@ -245,8 +280,12 @@ async def add_to_cart(
         )
     )
     item = result.scalar_one_or_none()
+    requested_total = (item.quantity if item else 0) + body.quantity
+    if requested_total > available:
+        raise HTTPException(400, f"Only {available} left in stock")
+
     if item:
-        item.quantity += body.quantity
+        item.quantity = requested_total
     else:
         item = CartItem(**body.model_dump(), cart_id=cart.id)
         db.add(item)
@@ -284,6 +323,17 @@ async def marketplace_checkout(
     cart = await _get_or_create_cart(user, db)
     if not cart.items:
         raise HTTPException(400, "Cart is empty")
+
+    # Stock can drift between "add to cart" and checkout — re-check right
+    # before we create the Razorpay order so we don't charge for something
+    # that's since sold out.
+    for cart_item in cart.items:
+        available = cart_item.variant.stock if cart_item.variant else cart_item.product.stock
+        if cart_item.quantity > available:
+            raise HTTPException(
+                400,
+                f"Only {available} left in stock for {cart_item.product.name} — please update your cart.",
+            )
 
     # Calculate total
     subtotal = sum(
@@ -352,21 +402,34 @@ async def verify_marketplace_payment(
     expected = hmac.new(
         settings.RAZORPAY_KEY_SECRET.encode(), payload.encode(), hashlib.sha256
     ).hexdigest()
-    if expected != body.razorpay_signature:
+    if not hmac.compare_digest(expected, body.razorpay_signature):
         raise HTTPException(400, "Invalid payment signature")
 
     result = await db.execute(
-        select(MarketplaceOrder).where(
-            MarketplaceOrder.razorpay_order_id == body.razorpay_order_id
+        select(MarketplaceOrder)
+        .where(MarketplaceOrder.razorpay_order_id == body.razorpay_order_id)
+        .options(
+            selectinload(MarketplaceOrder.items).selectinload(MarketplaceOrderItem.product),
+            selectinload(MarketplaceOrder.items).selectinload(MarketplaceOrderItem.variant),
         )
     )
     order = result.scalar_one_or_none()
     if not order:
         raise HTTPException(404, "Order not found")
+    if order.status == "PAID":
+        return {"detail": "Payment already verified", "order_number": order.order_number}
 
     order.status = "PAID"
     order.razorpay_payment_id = body.razorpay_payment_id
     order.razorpay_signature = body.razorpay_signature
+
+    # Decrement stock now that money has actually changed hands (same
+    # reasoning as the single-item gift order verify above).
+    for line in order.items:
+        if line.variant:
+            line.variant.stock = max(0, line.variant.stock - line.quantity)
+        elif line.product:
+            line.product.stock = max(0, line.product.stock - line.quantity)
 
     # Clear cart
     cart = await _get_or_create_cart(user, db)

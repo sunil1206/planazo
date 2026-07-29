@@ -25,7 +25,12 @@ ALLOWED_IMAGE_TYPES = {
 ALLOWED_VIDEO_TYPES = {
     "video/mp4", "video/quicktime", "video/webm", "video/x-msvideo",
 }
-ALLOWED_TYPES = ALLOWED_IMAGE_TYPES | ALLOWED_VIDEO_TYPES
+# Documents — needed for the Custom Events "Files" tab (tickets, receipts,
+# passport copies, booking confirmations are usually PDFs or images).
+ALLOWED_DOCUMENT_TYPES = {
+    "application/pdf",
+}
+ALLOWED_TYPES = ALLOWED_IMAGE_TYPES | ALLOWED_VIDEO_TYPES | ALLOWED_DOCUMENT_TYPES
 MAX_FILE_SIZE_MB = 200
 
 

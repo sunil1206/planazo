@@ -19,7 +19,7 @@ import json
 import uuid
 from datetime import timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -31,6 +31,7 @@ from app.core.security import (
 )
 from app.core.dependencies import get_current_user
 from app.core.config import settings
+from app.core.rate_limit import limiter
 from app.schemas.user import (
     RegisterRequest, LoginRequest, GoogleAuthRequest,
     SendOtpRequest, VerifyOtpRequest,
@@ -62,7 +63,8 @@ RESET_TTL = 3600     # 1 hour
 # ── Register ──────────────────────────────────────────────────────────────────
 
 @router.post("/register", response_model=TokenResponse, status_code=201)
-async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("5/minute")
+async def register(request: Request, body: RegisterRequest, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.email == body.email))
     if result.scalar_one_or_none():
         raise HTTPException(400, "Email already registered")
@@ -82,7 +84,8 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
 # ── Login ─────────────────────────────────────────────────────────────────────
 
 @router.post("/login", response_model=TokenResponse)
-async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def login(request: Request, body: LoginRequest, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.email == body.email))
     user = result.scalar_one_or_none()
     if not user or not verify_password(body.password, user.password):
@@ -145,17 +148,22 @@ async def google_auth(body: GoogleAuthRequest, db: AsyncSession = Depends(get_db
 # ── Token refresh ─────────────────────────────────────────────────────────────
 
 @router.post("/token/refresh", response_model=AccessTokenResponse)
-async def refresh_token(body: RefreshRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("30/minute")
+async def refresh_token(request: Request, body: RefreshRequest, db: AsyncSession = Depends(get_db)):
     payload = decode_token(body.refresh)
     if not payload or payload.get("type") != "refresh":
         raise HTTPException(401, "Invalid or expired refresh token")
 
-    result = await db.execute(select(User).where(User.id == payload["sub"]))
+    result = await db.execute(select(User).where(User.id == int(payload["sub"])))
     user = result.scalar_one_or_none()
     if not user or not user.is_active:
         raise HTTPException(401, "User not found or inactive")
 
-    access = create_access_token(user.id, user.role)
+    token_version = payload.get("tv", 0)
+    if token_version != (user.token_version or 0):
+        raise HTTPException(401, "Session has been revoked — please log in again")
+
+    access = create_access_token(user.id, user.role, user.token_version or 0)
     return {"access": access}
 
 
@@ -182,7 +190,9 @@ async def update_me(
 # ── OTP (email verification) ──────────────────────────────────────────────────
 
 @router.post("/send-otp", response_model=MessageResponse)
+@limiter.limit("3/minute")
 async def send_otp(
+    request: Request,
     body: SendOtpRequest,
     db: AsyncSession = Depends(get_db),
     redis=Depends(get_redis),
@@ -206,7 +216,8 @@ async def send_otp(
 
 
 @router.post("/verify-otp", response_model=MessageResponse)
-async def verify_otp(body: VerifyOtpRequest, redis=Depends(get_redis)):
+@limiter.limit("10/minute")
+async def verify_otp(request: Request, body: VerifyOtpRequest, redis=Depends(get_redis)):
     stored = await redis.get(f"otp:{body.email}")
     if not stored or stored != body.otp:
         raise HTTPException(400, "Invalid or expired OTP")
@@ -217,7 +228,9 @@ async def verify_otp(body: VerifyOtpRequest, redis=Depends(get_redis)):
 # ── Forgot / Reset password ───────────────────────────────────────────────────
 
 @router.post("/forgot-password", response_model=MessageResponse)
+@limiter.limit("5/minute")
 async def forgot_password(
+    request: Request,
     body: ForgotPasswordRequest,
     db: AsyncSession = Depends(get_db),
     redis=Depends(get_redis),
@@ -244,7 +257,9 @@ async def forgot_password(
 
 
 @router.post("/reset-password", response_model=MessageResponse)
+@limiter.limit("10/minute")
 async def reset_password(
+    request: Request,
     body: ResetPasswordRequest,
     db: AsyncSession = Depends(get_db),
     redis=Depends(get_redis),
@@ -259,6 +274,7 @@ async def reset_password(
         raise HTTPException(404, "User not found")
 
     user.password = hash_password(body.new_password)
+    user.token_version = (user.token_version or 0) + 1  # revoke any sessions from before the reset
     await db.commit()
     await redis.delete(f"pwd_reset:{body.token}")
     return {"detail": "Password reset successful"}
@@ -273,12 +289,20 @@ async def change_password(
     if not verify_password(body.old_password, user.password):
         raise HTTPException(400, "Incorrect current password")
     user.password = hash_password(body.new_password)
+    user.token_version = (user.token_version or 0) + 1  # revoke any other sessions
     await db.commit()
     return {"detail": "Password changed"}
 
 
-# ── Logout (stateless JWT — just a success ack) ───────────────────────────────
+# ── Logout (real revocation via token_version) ────────────────────────────────
+# Bumping token_version invalidates every access + refresh token issued before
+# this call, immediately — not just the one the client happens to send.
 
 @router.post("/logout", response_model=MessageResponse)
-async def logout():
+async def logout(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    user.token_version = (user.token_version or 0) + 1
+    await db.commit()
     return {"detail": "Logged out"}

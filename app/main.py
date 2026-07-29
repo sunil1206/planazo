@@ -2,6 +2,7 @@
 Planazo FastAPI application.
 Replaces the entire Django backend/ monolith.
 """
+import logging
 import os
 from contextlib import asynccontextmanager
 
@@ -10,10 +11,26 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 from prometheus_fastapi_instrumentator import Instrumentator
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 import sentry_sdk
 
 from app.core.config import settings
+from app.core.rate_limit import limiter
 from app.database.base import engine
+
+
+# ── Structured logging ────────────────────────────────────────────────────────
+# Nothing else in the app called logging.basicConfig(), so every
+# logging.getLogger(__name__) call (auth, webhooks, Celery tasks, the new
+# Planning Suite notification/queue warnings, etc.) was silently going
+# nowhere below WARNING. One line, applied once, at import time.
+logging.basicConfig(
+    level=logging.INFO if settings.DEBUG else logging.WARNING,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
+logging.getLogger("planazo").setLevel(logging.INFO)
 from app.routers.auth import router as auth_router
 from app.routers.invitations import router as invitations_router
 from app.routers.vendors import router as vendors_router
@@ -21,6 +38,8 @@ from app.routers.gallery import router as gallery_router
 from app.routers.payment import router as payment_router
 from app.routers.gifts import router as gifts_router
 from app.routers.birthday import router as birthday_router
+from app.routers.custom_events import router as custom_events_router
+from app.routers.planning import router as planning_router
 # Phase 1 — new routers
 from app.routers.permissions import router as permissions_router
 from app.routers.storage import router as storage_router
@@ -31,6 +50,7 @@ from app.routers.gifts_seller import router as gifts_seller_router
 from app.routers.razorpay_webhook import router as razorpay_webhook_router
 from app.admin.main import create_admin_instances
 from app.admin.views import register_views
+from app.middleware.error_handling import register_error_handlers
 
 
 # ── Sentry ────────────────────────────────────────────────────────────────────
@@ -82,6 +102,14 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
+    # ── Rate limiting ──────────────────────────────────────────────────────────
+    # Per-endpoint limits are declared where they matter (auth.py — login,
+    # register, OTP, password reset) via @limiter.limit(...); this just wires
+    # the shared Limiter instance into the app.
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    app.add_middleware(SlowAPIMiddleware)
+
     # ── Middleware ─────────────────────────────────────────────────────────────
     app.add_middleware(
         CORSMiddleware,
@@ -109,6 +137,8 @@ def create_app() -> FastAPI:
         payment_router,
         gifts_router,
         birthday_router,
+        custom_events_router,
+        planning_router,
         # Phase 1
         permissions_router,
         storage_router,
@@ -119,6 +149,9 @@ def create_app() -> FastAPI:
         razorpay_webhook_router,
     ]:
         app.include_router(router)
+
+    # ── Consistent error responses ────────────────────────────────────────────
+    register_error_handlers(app)
 
     # ── Admin panels ───────────────────────────────────────────────────────────
     admin, vendor_admin, gift_admin = create_admin_instances(app)
