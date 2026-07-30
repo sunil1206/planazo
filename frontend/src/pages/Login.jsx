@@ -17,6 +17,14 @@ let currentCredentialHandler = null
 // Loads Google's gsi/client script (declared in index.html) before we try to use it.
 function useGoogleIdentityServices(onCredential) {
   const buttonHostRef = useRef(null)
+  // Tracks whether Google's real button has actually finished rendering into
+  // buttonHostRef — renderButton() itself returns immediately, but the real
+  // <div role="button"> wrapper (and the iframe inside it) can take a beat
+  // to appear. Without this, a user who clicks "Sign in with Google" within
+  // that window gets a false "still loading" error even though everything
+  // is about to work fine — see handleGoogle() below, which now disables
+  // the button until this flips true instead of racing it.
+  const [ready, setReady] = useState(false)
 
   useEffect(() => {
     currentCredentialHandler = onCredential
@@ -39,6 +47,7 @@ function useGoogleIdentityServices(onCredential) {
       // Real Google button rendered off-screen — our own custom-styled button
       // triggers a click on it, so we never touch its required branding/markup.
       window.google.accounts.id.renderButton(buttonHostRef.current, { type: 'standard' })
+      if (!cancelled) setReady(true)
       return true
     }
 
@@ -55,7 +64,7 @@ function useGoogleIdentityServices(onCredential) {
     return true
   }, [])
 
-  return { buttonHostRef, trigger }
+  return { buttonHostRef, trigger, ready }
 }
 
 // ── Prevent browser autofill while keeping click-to-suggest behaviour ────────
@@ -256,13 +265,16 @@ export default function Login() {
     }
   }
 
-  const { buttonHostRef: googleButtonHostRef, trigger: triggerGoogle } = useGoogleIdentityServices(handleGoogleCredential)
+  const { buttonHostRef: googleButtonHostRef, trigger: triggerGoogle, ready: googleReady } = useGoogleIdentityServices(handleGoogleCredential)
 
   const handleGoogle = () => {
     setError('')
     if (!loginUserType) { setError('Please select your account type to continue'); return }
+    // The button is disabled while !googleReady (see below), so reaching
+    // here with triggerGoogle() still failing is a genuine problem, not the
+    // race this used to be — e.g. Google's script never loaded at all.
     if (!GOOGLE_CLIENT_ID || !triggerGoogle()) {
-      setError('Google sign-in is still loading — please try again in a moment.')
+      setError('Google sign-in is unavailable right now — please use email/password, or refresh and try again.')
     }
   }
 
@@ -380,9 +392,14 @@ export default function Login() {
                 <div className="flex-1 h-px bg-white/8" />
               </div>
 
-              <button onClick={handleGoogle} className="btn-google">
+              <button
+                onClick={handleGoogle}
+                className="btn-google"
+                disabled={!googleReady}
+                style={!googleReady ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
+              >
                 <GoogleIcon />
-                <span>Sign in with Google</span>
+                <span>{googleReady ? 'Sign in with Google' : 'Loading Google Sign-In…'}</span>
               </button>
               {/* Real Google-rendered button, kept off-screen — handleGoogle() clicks it programmatically. */}
               <div ref={googleButtonHostRef} aria-hidden="true"
