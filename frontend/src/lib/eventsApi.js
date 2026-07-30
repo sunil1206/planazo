@@ -113,6 +113,9 @@ export const weddingApi = {
   createWish: async (slug, body) => (await api.post(`/api/invitations/websites/${slug}/wishes/`, body)).data,
 
   recordVisit: async (slug) => api.post(`/api/invitations/websites/${slug}/visit/`),
+
+  getSeoSettings: async (slug) => (await api.get(`/api/invitations/websites/${slug}/seo-settings/`)).data,
+  updateSeoSettings: async (slug, body) => (await api.put(`/api/invitations/websites/${slug}/seo-settings/`, body)).data,
 }
 
 // ── Birthday pages ──────────────────────────────────────────────────────────────
@@ -149,4 +152,7 @@ export const birthdayApi = {
   createRSVP: async (slug, body) => (await api.post(`/api/birthday/pages/${slug}/rsvps/`, body)).data,
 
   recordVisit: async (slug) => api.post(`/api/birthday/pages/${slug}/visit/`),
+
+  getSeoSettings: async (slug) => (await api.get(`/api/birthday/pages/${slug}/seo-settings/`)).data,
+  updateSeoSettings: async (slug, body) => (await api.put(`/api/birthday/pages/${slug}/seo-settings/`, body)).data,
 }

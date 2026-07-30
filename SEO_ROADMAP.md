@@ -12,16 +12,26 @@ data and can't be faked.
 
 ```
 app/seo/
-  models.py     — SeoMetaOverride, SeoRobotsRule (SQLAlchemy)
+  models.py     — SeoMetaOverride, SeoRobotsRule, SeoRedirect (SQLAlchemy)
   schemas.py    — Pydantic request/response shapes
   generator.py  — meta tag + JSON-LD builders, per entity type
+  analysis.py   — on-page SEO + readability analysis engine (Yoast-style checklist)
+  redirects.py  — redirect lookup used by invitations.py / birthday.py
   sitemap.py    — sitemap.xml builder
   robots.py     — robots.txt builder
-  router.py     — GET /sitemap.xml, GET /robots.txt, /api/seo/admin/* CRUD
+  router.py     — GET /sitemap.xml, GET /robots.txt, POST /api/seo/analyze,
+                  /api/seo/admin/* CRUD (overrides, robots rules, redirects)
 
-frontend/src/components/Seo.jsx  — renders <title>/<meta>/<link>/JSON-LD
-                                    using React 19's native head-tag hoisting
-                                    (no react-helmet dependency needed)
+frontend/src/components/Seo.jsx            — renders <title>/<meta>/<link>/JSON-LD
+                                              using React 19's native head-tag hoisting
+                                              (no react-helmet dependency needed)
+frontend/src/components/SeoAnalysisPanel.jsx — the Yoast/RankMath-style "SEO" tab:
+                                              snippet preview, focus keyword input,
+                                              live traffic-light scores, checklist
+frontend/src/lib/seoAnalysis.js            — same analysis rules as analysis.py,
+                                              reimplemented in JS so the panel above
+                                              gets instant feedback with no network
+                                              round-trip per keystroke
 ```
 
 Design choice worth calling out: `SeoMetaOverride` is keyed by URL **path**
@@ -54,6 +64,32 @@ schema change.
   blocked.
 - Both are served at the domain root (not under `/api`) via new nginx
   `location =` blocks in `nginx/planazo.conf` and `nginx/nginx.conf`.
+- **On-page SEO analysis** (Yoast/RankMath's signature "traffic light" box):
+  every couple/birthday-page owner gets an "SEO" tab in their own editor
+  (`InvitationEditor.jsx`, `BirthdayEditor.jsx`) showing a live Google
+  snippet preview, a focus keyword field, and two 0-100 scores (SEO,
+  Readability) with a checklist explaining each one — title/meta-description
+  length, focus keyword presence in title/meta/slug/content, keyword
+  density (0.5-2.5% is the "natural" band), content length (300+ words),
+  sentence length, and Flesch reading ease. All computed client-side
+  (`frontend/src/lib/seoAnalysis.js`) for instant feedback; the same rules
+  exist server-side (`app/seo/analysis.py`, `POST /api/seo/analyze`) for API
+  consumers and tests. Saving writes to the same `SeoMetaOverride` row the
+  admin CRUD uses, scoped so an owner can only edit their own page
+  (`GET/PUT /api/invitations/websites/{slug}/seo-settings/`,
+  `GET/PUT /api/birthday/pages/{slug}/seo-settings/`).
+- **Redirect manager** (like Yoast Premium's / the Redirection plugin's):
+  admin-managed 301/302 rules (`SeoRedirect`, CRUD under
+  `/api/seo/admin/redirects`, also editable at `/admin`). When a wedding
+  invite or birthday page's slug lookup comes up empty, `app/seo/redirects.py`
+  checks for an active rule before returning 404; if one matches, the API
+  responds with `{"redirect": true, "target_path": ...}` and the frontend
+  (`InvitationSite.jsx` / `BirthdaySite.jsx`) client-side-navigates there
+  instead of showing a dead page. Scope note: this only covers the two
+  page types with a real slug-based API lookup today — a fully general
+  "redirect any URL on the site" manager would need nginx (or the SPA
+  router itself) to consult this table on every navigation, not just these
+  two detail routes.
 
 ### What's built but not wired in yet
 

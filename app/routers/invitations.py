@@ -15,7 +15,7 @@ Endpoints:
 """
 import logging
 import secrets
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Request
 from sqlalchemy import select
@@ -42,24 +42,32 @@ from app.schemas.invitation import (
     WeddingVendorAdd, WeddingVendorRead,
 )
 from app.seo.generator import build_wedding_meta
+from app.seo.models import SeoMetaOverride
+from app.seo.redirects import find_active_redirect, record_hit
+from app.seo.schemas import SeoSettingsIn, SeoSettingsOut, SeoRedirectResponse
 
 router = APIRouter(prefix="/api/invitations", tags=["invitations"])
 
 
 # ── Helper ────────────────────────────────────────────────────────────────────
 
-async def get_website_or_404(slug: str, db: AsyncSession) -> CoupleWebsite:
+_WEBSITE_OPTIONS = (
+    selectinload(CoupleWebsite.bridegroom),
+    selectinload(CoupleWebsite.stories),
+    selectinload(CoupleWebsite.events),
+    selectinload(CoupleWebsite.countdown),
+)
+
+
+async def get_website_optional(slug: str, db: AsyncSession) -> Optional[CoupleWebsite]:
     result = await db.execute(
-        select(CoupleWebsite)
-        .where(CoupleWebsite.slug == slug)
-        .options(
-            selectinload(CoupleWebsite.bridegroom),
-            selectinload(CoupleWebsite.stories),
-            selectinload(CoupleWebsite.events),
-            selectinload(CoupleWebsite.countdown),
-        )
+        select(CoupleWebsite).where(CoupleWebsite.slug == slug).options(*_WEBSITE_OPTIONS)
     )
-    website = result.scalar_one_or_none()
+    return result.scalar_one_or_none()
+
+
+async def get_website_or_404(slug: str, db: AsyncSession) -> CoupleWebsite:
+    website = await get_website_optional(slug, db)
     if not website:
         raise HTTPException(404, "Website not found")
     return website
@@ -105,12 +113,67 @@ async def create_website(
     return website
 
 
-@router.get("/websites/{slug}/", response_model=CoupleWebsiteDetail)
+@router.get("/websites/{slug}/", response_model=Union[CoupleWebsiteDetail, SeoRedirectResponse])
 async def get_website(slug: str, db: AsyncSession = Depends(get_db)):
-    website = await get_website_or_404(slug, db)
+    website = await get_website_optional(slug, db)
+    if not website:
+        redirect = await find_active_redirect(db, f"/invite/{slug}")
+        if redirect:
+            await record_hit(db, redirect)
+            return SeoRedirectResponse(target_path=redirect.target_path, status_code=redirect.status_code)
+        raise HTTPException(404, "Website not found")
     detail = CoupleWebsiteDetail.model_validate(website)
     detail.seo = await build_wedding_meta(db, website)
     return detail
+
+
+# ── Owner-scoped SEO settings ───────────────────────────────────────────────────
+# The Yoast-style "SEO" tab in the couple's own editor — distinct from the
+# admin-only /api/seo/admin/overrides CRUD (same underlying SeoMetaOverride
+# row, keyed by this page's own canonical path, but scoped so a couple can
+# only ever read/write their own page's row).
+
+@router.get("/websites/{slug}/seo-settings/", response_model=SeoSettingsOut)
+async def get_seo_settings(
+    slug: str,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    website = await get_website_or_404(slug, db)
+    assert_owner(website, user)
+    result = await db.execute(select(SeoMetaOverride).where(SeoMetaOverride.path == f"/invite/{slug}"))
+    override = result.scalar_one_or_none()
+    if not override:
+        return SeoSettingsOut()
+    return SeoSettingsOut(
+        title=override.title, meta_description=override.meta_description,
+        focus_keyword=override.focus_keyword, og_image=override.og_image,
+    )
+
+
+@router.put("/websites/{slug}/seo-settings/", response_model=SeoSettingsOut)
+async def update_seo_settings(
+    slug: str,
+    body: SeoSettingsIn,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    website = await get_website_or_404(slug, db)
+    assert_owner(website, user)
+    path = f"/invite/{slug}"
+    result = await db.execute(select(SeoMetaOverride).where(SeoMetaOverride.path == path))
+    override = result.scalar_one_or_none()
+    if not override:
+        override = SeoMetaOverride(path=path)
+        db.add(override)
+    for field, val in body.model_dump(exclude_none=True).items():
+        setattr(override, field, val)
+    await db.commit()
+    await db.refresh(override)
+    return SeoSettingsOut(
+        title=override.title, meta_description=override.meta_description,
+        focus_keyword=override.focus_keyword, og_image=override.og_image,
+    )
 
 
 @router.put("/websites/{slug}/", response_model=CoupleWebsiteRead)

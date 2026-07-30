@@ -33,7 +33,7 @@ from app.models.birthday import (
     BirthdayRSVP, BirthdayCountdown,
 )
 from app.models.payment import UserSubscription, Transaction
-from app.seo.models import SeoMetaOverride, SeoRobotsRule
+from app.seo.models import SeoMetaOverride, SeoRobotsRule, SeoRedirect
 
 
 # ── Main admin views ──────────────────────────────────────────────────────────
@@ -235,6 +235,15 @@ class SeoRobotsRuleAdmin(ModelView, model=SeoRobotsRule):
     column_filters = [SeoRobotsRule.is_active]
 
 
+class SeoRedirectAdmin(ModelView, model=SeoRedirect):
+    column_list = [SeoRedirect.id, SeoRedirect.source_path, SeoRedirect.target_path,
+                   SeoRedirect.status_code, SeoRedirect.is_active, SeoRedirect.hit_count]
+    column_searchable_list = [SeoRedirect.source_path, SeoRedirect.target_path]
+    column_filters = [SeoRedirect.is_active]
+    form_columns = [SeoRedirect.source_path, SeoRedirect.target_path,
+                    SeoRedirect.status_code, SeoRedirect.is_active]
+
+
 # ── Registration function ─────────────────────────────────────────────────────
 
 def register_views(admin_app, vendor_admin_app, gift_admin_app):
@@ -251,7 +260,7 @@ def register_views(admin_app, vendor_admin_app, gift_admin_app):
         VendorReviewAdmin, SubscriptionPlanAdmin, VendorSubscriptionAdmin,
         GiftCategoryAdmin, GiftProductAdmin, GiftOrderAdmin,
         MarketplaceOrderAdmin, ScheduledDeliveryAdmin, GiftSellerAdmin,
-        SeoMetaOverrideAdmin, SeoRobotsRuleAdmin,
+        SeoMetaOverrideAdmin, SeoRobotsRuleAdmin, SeoRedirectAdmin,
     ]:
         admin_app.add_view(view)
 

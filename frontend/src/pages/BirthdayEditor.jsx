@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import logo from '../assets/logo.png'
 import { birthdayApi, uploadIfLocal, searchVendors } from '../lib/eventsApi'
+import SeoAnalysisPanel from '../components/SeoAnalysisPanel'
 
 function compressImage(file, maxPx = 800, quality = 0.68) {
   return new Promise(resolve => {
@@ -50,6 +51,7 @@ const TABS = [
   { id: 'countdown', label: 'Countdown', icon: '⏳' },
   { id: 'gallery',   label: 'Gallery',   icon: '🖼️' },
   { id: 'vendors',   label: 'Vendors',   icon: '🤝' },
+  { id: 'seo',       label: 'SEO',       icon: '🔍' },
   { id: 'publish',   label: 'Publish',   icon: '🚀' },
 ]
 
@@ -1109,6 +1111,17 @@ export default function BirthdayEditor() {
             {activeTab === 'countdown' && <TabCountdown data={inv} onChange={onChange} onNext={handleNext} />}
             {activeTab === 'gallery'   && <TabGallery   bdayId={slug} onNext={handleNext} isLast={false} />}
             {activeTab === 'vendors'   && <TabVendors   data={inv} onChange={onChange} onNext={handleNext} />}
+            {activeTab === 'seo' && (
+              <SeoAnalysisPanel
+                slug={slug}
+                pathPrefix="/birthday"
+                fallbackTitle={`${inv.eventTitle || (inv.personName ? `${inv.personName}'s Birthday` : 'Birthday')} | Planazo`}
+                fallbackDescription={inv.personBio || `Celebrate ${inv.personName || 'this birthday'} — RSVP, share wishes, and view photos on Planazo.`}
+                content={[inv.personBio, ...(inv.memories || []).map(m => m.description)].filter(Boolean).join('\n\n')}
+                load={() => birthdayApi.getSeoSettings(slug)}
+                save={(body) => birthdayApi.updateSeoSettings(slug, body)}
+              />
+            )}
             {activeTab === 'publish'   && <TabPublish   data={inv} invId={slug} onPublish={handlePublish} onUnpublish={handleUnpublish} onNext={handleNext} />}
           </div>
         </div>

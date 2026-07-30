@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { birthdayApi } from '../lib/eventsApi'
 import Seo from '../components/Seo'
 
@@ -737,6 +737,7 @@ function BdaySelfieMatch({ photos, th, isPreview }) {
 // ── Main ──────────────────────────────────────────────────────────────────────
 export default function BirthdaySite() {
   const { id } = useParams()
+  const navigate = useNavigate()
   const isPreview = new URLSearchParams(window.location.search).has('preview')
   const [inv, setInv]     = useState(null)
   const [gallery, setGallery] = useState([])
@@ -748,6 +749,13 @@ export default function BirthdaySite() {
       try {
         const p = await birthdayApi.get(id)
         if (cancelled) return
+        // A slug that's been redirected (see app/seo/redirects.py) comes back
+        // as { redirect: true, target_path } instead of the normal detail
+        // payload — send the visitor straight on rather than 404ing.
+        if (p && p.redirect && p.target_path) {
+          navigate(p.target_path, { replace: true })
+          return
+        }
         setInv(mapPageToSite(p))
         if (!isPreview) birthdayApi.recordVisit(id).catch(() => {})
       } catch (e) {

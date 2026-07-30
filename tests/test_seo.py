@@ -10,10 +10,12 @@ from __future__ import annotations
 
 import pytest
 
-from app.seo.models import SeoMetaOverride, SeoRobotsRule
+from app.seo.models import SeoMetaOverride, SeoRobotsRule, SeoRedirect
 from app.seo.generator import build_wedding_meta, build_birthday_meta, build_vendor_meta
 from app.seo.sitemap import collect_sitemap_urls, render_sitemap_xml
 from app.seo.robots import build_robots_txt, DEFAULT_DISALLOW
+from app.seo.analysis import analyze_seo, flesch_reading_ease
+from app.seo.redirects import find_active_redirect, record_hit
 
 
 pytestmark = pytest.mark.asyncio
@@ -145,3 +147,115 @@ async def test_robots_txt_uses_admin_rule_when_present(db_session):
     assert "Disallow: /secret" in content
     # default fallback rule should NOT appear once a real rule exists
     assert "User-agent: *" not in content
+
+
+# ── On-page SEO analysis ─────────────────────────────────────────────────────
+
+def test_analyze_seo_flags_missing_everything():
+    result = analyze_seo(title="", meta_description="", slug="", content="", focus_keyword="")
+    assert result.seo_score < 50
+    assert result.seo_rating == "bad"
+    ids = {c.id for c in result.checks}
+    assert "title_length" in ids
+    assert "meta_length" in ids
+    assert "content_length" in ids
+
+
+def test_analyze_seo_good_title_and_meta_score_well():
+    title = "Priya & Arjun's Wedding Invitation — RSVP Now | Planazo"  # ~56 chars
+    meta = ("Join Priya and Arjun as they celebrate their wedding. "
+            "See the schedule, RSVP online, and share your wishes with the couple today.")  # ~130 chars
+    result = analyze_seo(title=title, meta_description=meta, slug="priya-arjun", content="", focus_keyword="")
+    title_check = next(c for c in result.checks if c.id == "title_length")
+    meta_check = next(c for c in result.checks if c.id == "meta_length")
+    assert title_check.status == "good"
+    assert meta_check.status == "good"
+
+
+def test_analyze_seo_focus_keyword_checklist():
+    content = ("Priya and Arjun met in college and have been inseparable ever since. " * 10)
+    result = analyze_seo(
+        title="Priya & Arjun Wedding",
+        meta_description="Priya & Arjun's wedding — RSVP and celebrate with us.",
+        slug="priya-arjun-wedding",
+        content=content,
+        focus_keyword="Priya & Arjun",
+    )
+    kw_title = next(c for c in result.checks if c.id == "keyword_in_title")
+    kw_meta = next(c for c in result.checks if c.id == "keyword_in_meta")
+    assert kw_title.status == "good"
+    assert kw_meta.status == "good"
+
+
+def test_analyze_seo_keyword_absent_is_flagged_bad():
+    result = analyze_seo(
+        title="Our Big Day",
+        meta_description="Come celebrate with us.",
+        slug="our-big-day",
+        content="Some unrelated filler content that never mentions the topic at all. " * 5,
+        focus_keyword="Priya Arjun",
+    )
+    kw_title = next(c for c in result.checks if c.id == "keyword_in_title")
+    kw_density = next(c for c in result.checks if c.id == "keyword_density")
+    assert kw_title.status == "bad"
+    assert kw_density.status == "bad"
+
+
+def test_flesch_reading_ease_simple_text_scores_higher_than_complex():
+    simple = "The cat sat on the mat. It was a good day. The sun was warm."
+    complex_text = ("The multifaceted ramifications of epistemological indeterminacy "
+                     "necessitate a fundamentally interdisciplinary methodological approach.")
+    assert flesch_reading_ease(simple) > flesch_reading_ease(complex_text)
+
+
+# ── Redirects ─────────────────────────────────────────────────────────────────
+
+async def test_find_active_redirect_matches_source_path(db_session):
+    db_session.add(SeoRedirect(source_path="/invite/old-slug", target_path="/invite/new-slug", status_code=301))
+    await db_session.commit()
+
+    found = await find_active_redirect(db_session, "/invite/old-slug")
+    assert found is not None
+    assert found.target_path == "/invite/new-slug"
+
+    missing = await find_active_redirect(db_session, "/invite/does-not-exist")
+    assert missing is None
+
+
+async def test_inactive_redirect_is_not_matched(db_session):
+    db_session.add(SeoRedirect(source_path="/invite/paused", target_path="/invite/new", is_active=False))
+    await db_session.commit()
+
+    found = await find_active_redirect(db_session, "/invite/paused")
+    assert found is None
+
+
+async def test_record_hit_increments_counter(db_session):
+    redirect = SeoRedirect(source_path="/invite/x", target_path="/invite/y")
+    db_session.add(redirect)
+    await db_session.commit()
+    await db_session.refresh(redirect)
+
+    await record_hit(db_session, redirect)
+    await record_hit(db_session, redirect)
+    assert redirect.hit_count == 2
+
+
+# ── Owner-scoped SEO settings + focus_keyword round-trip ───────────────────────
+
+async def test_seo_meta_override_stores_focus_keyword(db_session, make_user, make_wedding):
+    owner = await make_user(email="w4@test.com")
+    website = await make_wedding(owner, couple="Keyword Test")
+
+    db_session.add(SeoMetaOverride(
+        path=f"/invite/{website.slug}",
+        title="Custom Title",
+        focus_keyword="keyword test wedding",
+    ))
+    await db_session.commit()
+
+    result = await db_session.execute(
+        SeoMetaOverride.__table__.select().where(SeoMetaOverride.path == f"/invite/{website.slug}")
+    )
+    row = result.fetchone()
+    assert row.focus_keyword == "keyword test wedding"

@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import logo from '../assets/logo.png'
 import { weddingApi, uploadIfLocal, uploadImage, searchVendors } from '../lib/eventsApi'
 import api from '../lib/api'
+import SeoAnalysisPanel from '../components/SeoAnalysisPanel'
 
 // ── Image compression (client-side preview only; real upload happens on save) ──
 function compressImage(file, maxPx = 800, quality = 0.68) {
@@ -41,6 +42,7 @@ const TABS = [
   { id: 'date',    label: 'Date',       icon: '⏳' },
   { id: 'gallery', label: 'Gallery',    icon: '🖼️' },
   { id: 'vendors', label: 'Vendors',    icon: '🤝' },
+  { id: 'seo',     label: 'SEO',        icon: '🔍' },
   { id: 'publish', label: 'Publish',    icon: '🚀' },
 ]
 
@@ -1175,6 +1177,17 @@ export default function InvitationEditor() {
             {activeTab === 'date'    && <TabDate     data={inv} onChange={onChange} onNext={handleNext} isLast={false} />}
             {activeTab === 'gallery' && <TabGallery  slug={slug} onNext={handleNext} isLast={false} />}
             {activeTab === 'vendors' && <TabVendors  vendors={inv.vendors} onAdd={handleAddVendor} onRemove={handleRemoveVendor} onNext={handleNext} isLast={false} />}
+            {activeTab === 'seo' && (
+              <SeoAnalysisPanel
+                slug={slug}
+                pathPrefix="/invite"
+                fallbackTitle={`${inv.coupleName || 'Our'} — Wedding Invitation | Planazo`}
+                fallbackDescription={[inv.brideBio, inv.groomBio].filter(Boolean).join(' & ') || `You're invited to ${inv.coupleName || 'our'}'s wedding. RSVP, see the schedule, and view photos on Planazo.`}
+                content={[inv.groomBio, inv.brideBio, ...(inv.story || []).map(m => m.description)].filter(Boolean).join('\n\n')}
+                load={() => weddingApi.getSeoSettings(slug)}
+                save={(body) => weddingApi.updateSeoSettings(slug, body)}
+              />
+            )}
             {activeTab === 'publish' && <TabPublish  data={inv} invId={slug} onPublish={handlePublish} onUnpublish={handleUnpublish} onNext={handleNext} />}
           </div>
         </div>

@@ -36,7 +36,7 @@ from app.models.planning import (
     Guest as PlanningGuest,
     VendorBooking as PlanningVendorBooking,
 )
-from app.seo.models import SeoMetaOverride, SeoRobotsRule
+from app.seo.models import SeoMetaOverride, SeoRobotsRule, SeoRedirect
 
 __all__ = [
     "User",
@@ -57,5 +57,5 @@ __all__ = [
     "UserSubscription", "Transaction",
     "CustomEvent", "ChecklistItem", "BudgetItem", "EventNote", "EventGallery", "EventFile", "EventMember",
     "PlanningChecklistItem", "PlanningBudgetItem", "PlanningGuest", "PlanningVendorBooking",
-    "SeoMetaOverride", "SeoRobotsRule",
+    "SeoMetaOverride", "SeoRobotsRule", "SeoRedirect",
 ]

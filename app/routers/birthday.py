@@ -13,7 +13,7 @@ Endpoints:
   POST        /api/birthday/pages/{slug}/countdown/
   POST        /api/birthday/pages/{slug}/visit/
 """
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
@@ -36,24 +36,32 @@ from app.schemas.birthday import (
     BirthdayCountdownBase, BirthdayCountdownRead,
 )
 from app.seo.generator import build_birthday_meta
+from app.seo.models import SeoMetaOverride
+from app.seo.redirects import find_active_redirect, record_hit
+from app.seo.schemas import SeoSettingsIn, SeoSettingsOut, SeoRedirectResponse
 
 router = APIRouter(prefix="/api/birthday", tags=["birthday"])
 
 
 # ── Helper ────────────────────────────────────────────────────────────────────
 
-async def get_page_or_404(slug: str, db: AsyncSession) -> BirthdayPage:
+_PAGE_OPTIONS = (
+    selectinload(BirthdayPage.events),
+    selectinload(BirthdayPage.stories),
+    selectinload(BirthdayPage.wishes),
+    selectinload(BirthdayPage.countdown),
+)
+
+
+async def get_page_optional(slug: str, db: AsyncSession) -> Optional[BirthdayPage]:
     result = await db.execute(
-        select(BirthdayPage)
-        .where(BirthdayPage.slug == slug)
-        .options(
-            selectinload(BirthdayPage.events),
-            selectinload(BirthdayPage.stories),
-            selectinload(BirthdayPage.wishes),
-            selectinload(BirthdayPage.countdown),
-        )
+        select(BirthdayPage).where(BirthdayPage.slug == slug).options(*_PAGE_OPTIONS)
     )
-    page = result.scalar_one_or_none()
+    return result.scalar_one_or_none()
+
+
+async def get_page_or_404(slug: str, db: AsyncSession) -> BirthdayPage:
+    page = await get_page_optional(slug, db)
     if not page:
         raise HTTPException(404, "Birthday page not found")
     return page
@@ -95,12 +103,63 @@ async def create_page(
     return page
 
 
-@router.get("/pages/{slug}/", response_model=BirthdayPageDetail)
+@router.get("/pages/{slug}/", response_model=Union[BirthdayPageDetail, SeoRedirectResponse])
 async def get_page(slug: str, db: AsyncSession = Depends(get_db)):
-    page = await get_page_or_404(slug, db)
+    page = await get_page_optional(slug, db)
+    if not page:
+        redirect = await find_active_redirect(db, f"/birthday/{slug}")
+        if redirect:
+            await record_hit(db, redirect)
+            return SeoRedirectResponse(target_path=redirect.target_path, status_code=redirect.status_code)
+        raise HTTPException(404, "Birthday page not found")
     detail = BirthdayPageDetail.model_validate(page)
     detail.seo = await build_birthday_meta(db, page)
     return detail
+
+
+# ── Owner-scoped SEO settings ───────────────────────────────────────────────────
+
+@router.get("/pages/{slug}/seo-settings/", response_model=SeoSettingsOut)
+async def get_seo_settings(
+    slug: str,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    page = await get_page_or_404(slug, db)
+    assert_owner(page, user)
+    result = await db.execute(select(SeoMetaOverride).where(SeoMetaOverride.path == f"/birthday/{slug}"))
+    override = result.scalar_one_or_none()
+    if not override:
+        return SeoSettingsOut()
+    return SeoSettingsOut(
+        title=override.title, meta_description=override.meta_description,
+        focus_keyword=override.focus_keyword, og_image=override.og_image,
+    )
+
+
+@router.put("/pages/{slug}/seo-settings/", response_model=SeoSettingsOut)
+async def update_seo_settings(
+    slug: str,
+    body: SeoSettingsIn,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    page = await get_page_or_404(slug, db)
+    assert_owner(page, user)
+    path = f"/birthday/{slug}"
+    result = await db.execute(select(SeoMetaOverride).where(SeoMetaOverride.path == path))
+    override = result.scalar_one_or_none()
+    if not override:
+        override = SeoMetaOverride(path=path)
+        db.add(override)
+    for field, val in body.model_dump(exclude_none=True).items():
+        setattr(override, field, val)
+    await db.commit()
+    await db.refresh(override)
+    return SeoSettingsOut(
+        title=override.title, meta_description=override.meta_description,
+        focus_keyword=override.focus_keyword, og_image=override.og_image,
+    )
 
 
 @router.put("/pages/{slug}/", response_model=BirthdayPageRead)

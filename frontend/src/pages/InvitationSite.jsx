@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { weddingApi } from '../lib/eventsApi'
 import Seo from '../components/Seo'
 
@@ -658,6 +658,7 @@ function SelfieMatchSection({ photos, th }) {
 // ── Main Component ─────────────────────────────────────────────────────────────
 export default function InvitationSite() {
   const { id } = useParams()
+  const navigate = useNavigate()
   const [inv, setInv] = useState(null)
   const [gallery, setGallery] = useState([])
   const [rsvp, setRsvp] = useState({ name: '', phone: '', attending: 'yes', guests: '1' })
@@ -683,6 +684,13 @@ export default function InvitationSite() {
       try {
         const w = await weddingApi.get(id)
         if (cancelled) return
+        // A slug that's been redirected (see app/seo/redirects.py) comes back
+        // as { redirect: true, target_path } instead of the normal detail
+        // payload — send the visitor straight on rather than 404ing.
+        if (w && w.redirect && w.target_path) {
+          navigate(w.target_path, { replace: true })
+          return
+        }
         setInv(mapWebsiteToSite(w))
         weddingApi.listPhotos(id)
           .then(photos => setGallery(photos.map(p => ({ id: p.id, photo: p.image, category: p.tag }))))

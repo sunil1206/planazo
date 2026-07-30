@@ -22,14 +22,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database.base import get_db
 from app.core.dependencies import get_current_user
 from app.models.user import User
-from app.seo.models import SeoMetaOverride, SeoRobotsRule
+from app.seo.models import SeoMetaOverride, SeoRobotsRule, SeoRedirect
 from app.seo.schemas import (
     SeoMetaOverrideCreate, SeoMetaOverrideUpdate, SeoMetaOverrideRead,
     SeoRobotsRuleCreate, SeoRobotsRuleUpdate, SeoRobotsRuleRead,
+    SeoRedirectCreate, SeoRedirectUpdate, SeoRedirectRead,
+    SeoAnalysisRequest, SeoAnalysisResult,
     SitemapSummary,
 )
 from app.seo.sitemap import collect_sitemap_urls, render_sitemap_xml
 from app.seo.robots import build_robots_txt
+from app.seo.analysis import analyze_seo
 
 router = APIRouter(tags=["seo"])
 
@@ -189,3 +192,87 @@ async def delete_robots_rule(
         raise HTTPException(404, "Rule not found")
     await db.delete(rule)
     await db.commit()
+
+
+# ── Admin: redirects CRUD ──────────────────────────────────────────────────────
+
+@router.get("/api/seo/admin/redirects", response_model=List[SeoRedirectRead])
+async def list_redirects(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    _require_admin(user)
+    result = await db.execute(select(SeoRedirect).order_by(SeoRedirect.updated_at.desc().nullslast()))
+    return result.scalars().all()
+
+
+@router.post("/api/seo/admin/redirects", response_model=SeoRedirectRead, status_code=201)
+async def create_redirect(
+    body: SeoRedirectCreate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    _require_admin(user)
+    existing = await db.execute(select(SeoRedirect).where(SeoRedirect.source_path == body.source_path))
+    if existing.scalar_one_or_none():
+        raise HTTPException(400, f"A redirect for {body.source_path} already exists")
+    redirect = SeoRedirect(**body.model_dump())
+    db.add(redirect)
+    await db.commit()
+    await db.refresh(redirect)
+    return redirect
+
+
+@router.put("/api/seo/admin/redirects/{redirect_id}", response_model=SeoRedirectRead)
+async def update_redirect(
+    redirect_id: int,
+    body: SeoRedirectUpdate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    _require_admin(user)
+    result = await db.execute(select(SeoRedirect).where(SeoRedirect.id == redirect_id))
+    redirect = result.scalar_one_or_none()
+    if not redirect:
+        raise HTTPException(404, "Redirect not found")
+    for field, val in body.model_dump(exclude_none=True).items():
+        setattr(redirect, field, val)
+    await db.commit()
+    await db.refresh(redirect)
+    return redirect
+
+
+@router.delete("/api/seo/admin/redirects/{redirect_id}", status_code=204)
+async def delete_redirect(
+    redirect_id: int,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    _require_admin(user)
+    result = await db.execute(select(SeoRedirect).where(SeoRedirect.id == redirect_id))
+    redirect = result.scalar_one_or_none()
+    if not redirect:
+        raise HTTPException(404, "Redirect not found")
+    await db.delete(redirect)
+    await db.commit()
+
+
+# ── On-page SEO analysis ────────────────────────────────────────────────────────
+# Any authenticated user (not admin-only) — this is the same "traffic light"
+# checklist a couple/birthday-page owner sees live in their own editor
+# (frontend/src/lib/seoAnalysis.js runs the same rules client-side for
+# instant feedback; this endpoint is for API consumers / tests / anywhere a
+# server-side check is more convenient than duplicating the JS).
+
+@router.post("/api/seo/analyze", response_model=SeoAnalysisResult)
+async def analyze(
+    body: SeoAnalysisRequest,
+    user: User = Depends(get_current_user),
+):
+    return analyze_seo(
+        title=body.title,
+        meta_description=body.meta_description,
+        slug=body.slug,
+        content=body.content,
+        focus_keyword=body.focus_keyword,
+    )
