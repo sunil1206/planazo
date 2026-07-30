@@ -317,8 +317,10 @@ The frontend build (`npm run build` inside `frontend/Dockerfile.prod`) couldn't 
 `Base.metadata.create_all()` creates all tables on first boot automatically (see `app/main.py`'s lifespan hook) — but it only adds missing *tables*, never missing *columns* on tables that already exist. This matters here because `app/models/user.py` just gained a `token_version` column (for the refresh-token revocation fix), and Alembic migration `0002` is what adds it:
 
 ```bash
-docker compose -f docker-compose.prod.yml exec -T api alembic upgrade head
+docker compose -f docker-compose.prod.yml exec -T api alembic -c app/alembic.ini upgrade head
 ```
+
+(`alembic.ini` lives at `app/alembic.ini`, not the container's default working directory `/workspace` — the `-c` flag points at it explicitly rather than relying on `cd`.)
 
 On a genuinely fresh database this is a no-op safety net (the table doesn't exist yet, so `create_all()` already included the column) — but it's mandatory on any database that's ever been migrated before, and costs nothing to run every deploy. It's already wired into `.github/workflows/deploy.yml`'s auto-deploy step, so future `git push`-triggered deploys handle it automatically.
 
