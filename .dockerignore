@@ -1,0 +1,34 @@
+# The api/celery build context is now the repo root (needed so app/Dockerfile
+# can COPY the top-level services/ package alongside app/) — exclude
+# everything that isn't actually needed inside those images, so the
+# "sending build context to Docker daemon" step stays fast and secrets/VCS
+# history never get sent to the Docker daemon.
+
+.git/
+.github/
+
+# Frontend — irrelevant to the api/celery/fastapi images, and node_modules
+# alone can be hundreds of MB.
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Python
+**/__pycache__/
+**/*.py[cod]
+.venv/
+venv/
+env/
+.pytest_cache/
+
+# Secrets — never send these to the build daemon; they're injected at
+# container runtime via env_file, not baked into the image.
+.env
+.env.production
+frontend/.env*
+
+# Docs / misc
+*.md
+.vscode/
+.idea/
+.DS_Store

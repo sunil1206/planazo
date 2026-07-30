@@ -7,10 +7,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /workspace
 
-COPY requirements.txt .
+# NOTE: build context for this Dockerfile must be the REPO ROOT, not app/ —
+# app/routers/storage.py, gallery_v2.py, and photographer.py all import the
+# top-level `services/` package (services/storage.py), which lives as a
+# sibling of app/, not inside it. A context of ./app can never see it, which
+# is why the image used to crash-loop with "ModuleNotFoundError: No module
+# named 'services'" even though it worked fine on a laptop (the dev compose
+# file papers over this with a `./services:/workspace/services` volume mount
+# that only exists at runtime, not at build time).
+COPY app/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . /workspace/app
+COPY app /workspace/app
+COPY services /workspace/services
 
 ENV PYTHONPATH=/workspace
 ENV PYTHONDONTWRITEBYTECODE=1

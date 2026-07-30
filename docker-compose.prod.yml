@@ -41,8 +41,8 @@ services:
   # ── Main FastAPI app (replaces Django) ───────────────────────────────────────
   api:
     build:
-      context: ./app
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: app/Dockerfile
     restart: always
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
     env_file: .env.production
@@ -59,8 +59,8 @@ services:
   # ── Celery worker ─────────────────────────────────────────────────────────────
   celery:
     build:
-      context: ./app
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: app/Dockerfile
     restart: always
     command: celery -A app.workers.celery_app worker -l info --concurrency=2
     env_file: .env.production

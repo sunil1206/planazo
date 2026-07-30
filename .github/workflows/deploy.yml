@@ -56,5 +56,7 @@ jobs:
             # Base tables are created by SQLAlchemy's create_all() in app/main.py's
             # lifespan hook on first boot; alembic upgrade head applies any
             # incremental migrations layered on top (see app/alembic/versions/).
-            docker compose -f docker-compose.prod.yml exec -T api alembic upgrade head
+            # alembic.ini lives at app/alembic.ini, not the container's default
+            # cwd (/workspace) — pass -c explicitly rather than relying on cwd.
+            docker compose -f docker-compose.prod.yml exec -T api alembic -c app/alembic.ini upgrade head
             echo "Deployed successfully"
