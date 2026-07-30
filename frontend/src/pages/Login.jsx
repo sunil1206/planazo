@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef, useCallback } from 'react'
+﻿import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import logo from '../assets/logo.png'
 import { useAuth } from '../context/useAuth'
@@ -15,16 +15,19 @@ let googleIdInitialized = false
 let currentCredentialHandler = null
 
 // Loads Google's gsi/client script (declared in index.html) before we try to use it.
+//
+// Google's rendered button is a real (same-origin overlay + cross-origin iframe)
+// element whose internal markup is undocumented and can change — searching it
+// for a specific nested selector and firing a synthetic .click() on it (the
+// previous approach here) is exactly that fragile guesswork, and breaks
+// silently whenever Google's DOM shape differs from what the selector expects.
+// Instead this exposes `ready` + `buttonHostRef` so the real button can be laid
+// out as a transparent overlay directly on top of our custom-styled button —
+// the user's actual click lands on Google's real element, no proxying needed.
 function useGoogleIdentityServices(onCredential) {
   const buttonHostRef = useRef(null)
-  // Tracks whether Google's real button has actually finished rendering into
-  // buttonHostRef — renderButton() itself returns immediately, but the real
-  // <div role="button"> wrapper (and the iframe inside it) can take a beat
-  // to appear. Without this, a user who clicks "Sign in with Google" within
-  // that window gets a false "still loading" error even though everything
-  // is about to work fine — see handleGoogle() below, which now disables
-  // the button until this flips true instead of racing it.
   const [ready, setReady] = useState(false)
+  const [stuck, setStuck] = useState(false)
 
   useEffect(() => {
     currentCredentialHandler = onCredential
@@ -34,6 +37,37 @@ function useGoogleIdentityServices(onCredential) {
   useEffect(() => {
     if (!GOOGLE_CLIENT_ID) return
     let cancelled = false
+    let pollId = null
+    let observer = null
+    let stuckTimer = null
+
+    function markReady() {
+      if (cancelled) return
+      setReady(true)
+      if (stuckTimer) clearTimeout(stuckTimer)
+    }
+
+    // renderButton() only *starts* an async fetch of Google's real button
+    // iframe — it returns long before that iframe actually exists in the
+    // DOM. Flipping `ready` right after calling it (the previous approach)
+    // races that fetch: on a slow connection the invisible overlay goes
+    // live and starts swallowing clicks before Google's real clickable
+    // element has actually landed underneath it. A MutationObserver on the
+    // host element is the only reliable way to know it's really there.
+    function watchForRealButton() {
+      if (!buttonHostRef.current) return
+      if (buttonHostRef.current.querySelector('div[role="button"], iframe')) {
+        markReady()
+        return
+      }
+      observer = new MutationObserver(() => {
+        if (buttonHostRef.current?.querySelector('div[role="button"], iframe')) {
+          markReady()
+          observer?.disconnect()
+        }
+      })
+      observer.observe(buttonHostRef.current, { childList: true, subtree: true })
+    }
 
     function init() {
       if (cancelled || !window.google?.accounts?.id || !buttonHostRef.current) return false
@@ -44,27 +78,29 @@ function useGoogleIdentityServices(onCredential) {
         })
         googleIdInitialized = true
       }
-      // Real Google button rendered off-screen — our own custom-styled button
-      // triggers a click on it, so we never touch its required branding/markup.
-      window.google.accounts.id.renderButton(buttonHostRef.current, { type: 'standard' })
-      if (!cancelled) setReady(true)
+      window.google.accounts.id.renderButton(buttonHostRef.current, { type: 'standard', width: 360 })
+      watchForRealButton()
       return true
     }
 
     if (!init()) {
-      const id = setInterval(() => { if (init()) clearInterval(id) }, 200)
-      return () => { cancelled = true; clearInterval(id) }
+      pollId = setInterval(() => { if (init()) clearInterval(pollId) }, 200)
+    }
+
+    // If the real button still hasn't shown up after 8s — script blocked by
+    // a privacy extension/shield, offline, etc. — stop implying it might
+    // still arrive any moment and tell the user plainly instead.
+    stuckTimer = setTimeout(() => { if (!cancelled) setStuck(true) }, 8000)
+
+    return () => {
+      cancelled = true
+      if (pollId) clearInterval(pollId)
+      if (observer) observer.disconnect()
+      if (stuckTimer) clearTimeout(stuckTimer)
     }
   }, [])
 
-  const trigger = useCallback(() => {
-    const realButton = buttonHostRef.current?.querySelector('div[role="button"]')
-    if (!realButton) return false
-    realButton.click()
-    return true
-  }, [])
-
-  return { buttonHostRef, trigger, ready }
+  return { buttonHostRef, ready, stuck }
 }
 
 // ── Prevent browser autofill while keeping click-to-suggest behaviour ────────
@@ -265,16 +301,18 @@ export default function Login() {
     }
   }
 
-  const { buttonHostRef: googleButtonHostRef, trigger: triggerGoogle, ready: googleReady } = useGoogleIdentityServices(handleGoogleCredential)
+  const { buttonHostRef: googleButtonHostRef, ready: googleReady, stuck: googleStuck } = useGoogleIdentityServices(handleGoogleCredential)
+  const googleOverlayActive = !!loginUserType && googleReady
 
+  // Only reachable when the overlay isn't capturing clicks — see googleOverlayActive
+  // below (no account type picked yet, or Google's button hasn't rendered yet).
   const handleGoogle = () => {
     setError('')
     if (!loginUserType) { setError('Please select your account type to continue'); return }
-    // The button is disabled while !googleReady (see below), so reaching
-    // here with triggerGoogle() still failing is a genuine problem, not the
-    // race this used to be — e.g. Google's script never loaded at all.
-    if (!GOOGLE_CLIENT_ID || !triggerGoogle()) {
-      setError('Google sign-in is unavailable right now — please use email/password, or refresh and try again.')
+    if (googleStuck) {
+      setError("Google sign-in couldn't load — this is usually a privacy extension or browser shield (e.g. Brave Shields, an ad blocker) blocking Google's scripts. Try disabling it for this site, or use email/password instead.")
+    } else {
+      setError('Google sign-in is still loading — please try again in a moment.')
     }
   }
 
@@ -392,18 +430,26 @@ export default function Login() {
                 <div className="flex-1 h-px bg-white/8" />
               </div>
 
-              <button
-                onClick={handleGoogle}
-                className="btn-google"
-                disabled={!googleReady}
-                style={!googleReady ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
-              >
-                <GoogleIcon />
-                <span>{googleReady ? 'Sign in with Google' : 'Loading Google Sign-In…'}</span>
-              </button>
-              {/* Real Google-rendered button, kept off-screen — handleGoogle() clicks it programmatically. */}
-              <div ref={googleButtonHostRef} aria-hidden="true"
-                style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', opacity: 0, pointerEvents: 'none' }} />
+              <div className="relative">
+                <button onClick={handleGoogle} className="btn-google">
+                  <GoogleIcon />
+                  <span>Sign in with Google</span>
+                </button>
+                {/*
+                  Google's real button, invisibly overlaid exactly on top of the
+                  custom-styled one above. When active, the user's actual click
+                  lands directly on Google's own element (a genuine gesture —
+                  no synthetic .click(), nothing to guess about its internals).
+                  Until an account type is picked (or the button isn't ready
+                  yet), pointer-events stays off so clicks fall through to the
+                  button underneath and handleGoogle() shows the right message.
+                */}
+                <div ref={googleButtonHostRef} aria-hidden="true"
+                  style={{
+                    position: 'absolute', inset: 0, overflow: 'hidden', opacity: 0,
+                    pointerEvents: googleOverlayActive ? 'auto' : 'none',
+                  }} />
+              </div>
 
               <p className="text-center text-white/35 text-[12px] mt-2.5 sm:mt-4">
                 Don&apos;t have an account?{' '}
