@@ -5,7 +5,10 @@ import re
 
 
 # ── Enums / literals ─────────────────────────────────────────────────────────
-ROLE_CHOICES = {"COUPLE", "VENDOR", "ADMIN"}
+# "USER" was "COUPLE" — a holdover from when this was wedding-only. The app
+# now covers weddings, birthdays, and custom events, so the generic account
+# role is "USER"; VENDOR and ADMIN are unchanged.
+ROLE_CHOICES = {"USER", "VENDOR", "ADMIN"}
 
 
 # ── Auth ─────────────────────────────────────────────────────────────────────
@@ -14,7 +17,7 @@ class RegisterRequest(BaseModel):
     email: EmailStr
     password: str
     full_name: str
-    role: str = "COUPLE"
+    role: str = "USER"
 
     @field_validator("role")
     @classmethod
@@ -39,7 +42,7 @@ class LoginRequest(BaseModel):
 
 class GoogleAuthRequest(BaseModel):
     token: str                  # Google ID token
-    role: str = "COUPLE"
+    role: str = "USER"
 
     @field_validator("role")
     @classmethod

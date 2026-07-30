@@ -84,7 +84,7 @@ async def client(db_session):
 
 @pytest_asyncio.fixture
 def make_user(db_session):
-    async def _make(email="user@test.com", role="COUPLE"):
+    async def _make(email="user@test.com", role="USER"):
         user = User(email=email, password="!", full_name="Test User", role=role, is_active=True)
         db_session.add(user)
         await db_session.commit()

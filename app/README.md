@@ -377,7 +377,7 @@ All 45 database tables used by the FastAPI app. Table names are identical to the
 | email | String(254) | Unique, indexed |
 | password | String(128) | PBKDF2 (Django) → bcrypt after first login |
 | full_name | String(255) | |
-| role | String(20) | COUPLE / VENDOR / ADMIN |
+| role | String(20) | USER / VENDOR / ADMIN |
 | google_id | String(255) | Unique, nullable |
 | phone | String(20) | Unique, nullable |
 | avatar_url | String(200) | Nullable |

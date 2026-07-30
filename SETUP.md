@@ -78,7 +78,7 @@ Frontend runs at: http://localhost:3000
 ## Step 5: Test the Full Flow
 
 1. Open http://localhost:3000/register
-2. Register as COUPLE with email/password OR Google
+2. Register as USER with email/password OR Google
 3. Create your first invitation at /dashboard/invitations
 4. Set theme, couple names, upload thumbnail → Save & Publish
 5. Open http://localhost:3000/invite/{your-slug}

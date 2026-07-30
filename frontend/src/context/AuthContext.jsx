@@ -7,13 +7,13 @@ const USER_KEY = 'planazo_user'
 
 // Backend role <-> frontend account-type values (see RoleSelect.jsx / Login.jsx USER_TYPES).
 // 'gift_seller' is currently hidden in the UI but kept here so it keeps working if re-enabled.
-const USER_TYPE_TO_ROLE = { user: 'COUPLE', vendor: 'VENDOR', gift_seller: 'VENDOR' }
-const ROLE_TO_USER_TYPE = { COUPLE: 'user', VENDOR: 'vendor', ADMIN: 'vendor' }
+const USER_TYPE_TO_ROLE = { user: 'USER', vendor: 'VENDOR', gift_seller: 'VENDOR' }
+const ROLE_TO_USER_TYPE = { USER: 'user', VENDOR: 'vendor', ADMIN: 'vendor' }
 const USER_TYPE_LABEL = { user: 'User', vendor: 'Vendor', gift_seller: 'Gift Seller' }
 
 // Neither /login nor /google check the account-type chip the user clicked —
 // they only know email/password or a Google token. So a mismatch (e.g. a
-// COUPLE account signing in as Vendor) has to be caught here, client-side,
+// USER account signing in as Vendor) has to be caught here, client-side,
 // before the session is ever persisted.
 function assertUserTypeMatches(actualRole, expectedUserType) {
   const actualUserType = ROLE_TO_USER_TYPE[actualRole] ?? 'user'
@@ -70,7 +70,7 @@ export function AuthProvider({ children }) {
 
   // Register returns the same TokenResponse shape as login, so signup logs the user in directly.
   const register = useCallback(async (email, password, fullName, userType) => {
-    const role = USER_TYPE_TO_ROLE[userType] ?? 'COUPLE'
+    const role = USER_TYPE_TO_ROLE[userType] ?? 'USER'
     const { data } = await api.post('/api/auth/register', { email, password, full_name: fullName, role })
     persistSession(data)
     return data
@@ -80,7 +80,7 @@ export function AuthProvider({ children }) {
   // the mismatch check below only ever fires for an existing account under a
   // different role — same fairness rule as password login.
   const loginWithGoogle = useCallback(async (googleToken, userType) => {
-    const role = USER_TYPE_TO_ROLE[userType] ?? 'COUPLE'
+    const role = USER_TYPE_TO_ROLE[userType] ?? 'USER'
     const { data } = await api.post('/api/auth/google', { token: googleToken, role })
     assertUserTypeMatches(data.user.role, userType)
     persistSession(data)

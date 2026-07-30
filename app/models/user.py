@@ -13,7 +13,7 @@ class User(Base):
     is_superuser = Column(Boolean, default=False)
     email        = Column(String(254), unique=True, nullable=False, index=True)
     full_name    = Column(String(255), nullable=False, default="")
-    role         = Column(String(20), nullable=False, default="COUPLE")
+    role         = Column(String(20), nullable=False, default="USER")
     google_id    = Column(String(255), unique=True, nullable=True)
     phone        = Column(String(20), unique=True, nullable=True)
     avatar_url   = Column(String(200), nullable=True)
@@ -42,8 +42,8 @@ class User(Base):
 
     # ── Properties ───────────────────────────────────────────────────────────
     @property
-    def is_couple(self):
-        return self.role == "COUPLE"
+    def is_user(self):
+        return self.role == "USER"
 
     @property
     def is_vendor(self):
