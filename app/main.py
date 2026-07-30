@@ -48,6 +48,8 @@ from app.routers.photographer import router as photographer_router
 # Seller dashboard + payment webhooks
 from app.routers.gifts_seller import router as gifts_seller_router
 from app.routers.razorpay_webhook import router as razorpay_webhook_router
+# SEO — /sitemap.xml, /robots.txt, admin meta-override + robots-rule CRUD
+from app.seo.router import router as seo_router
 from app.admin.main import create_admin_instances
 from app.admin.views import register_views
 from app.middleware.error_handling import register_error_handlers
@@ -147,6 +149,8 @@ def create_app() -> FastAPI:
         # Seller + webhooks
         gifts_seller_router,
         razorpay_webhook_router,
+        # SEO
+        seo_router,
     ]:
         app.include_router(router)
 

@@ -33,6 +33,7 @@ from app.models.birthday import (
     BirthdayRSVP, BirthdayCountdown,
 )
 from app.models.payment import UserSubscription, Transaction
+from app.seo.models import SeoMetaOverride, SeoRobotsRule
 
 
 # ── Main admin views ──────────────────────────────────────────────────────────
@@ -216,6 +217,24 @@ class GiftSellerAdmin(ModelView, model=GiftSeller):
     column_filters = [GiftSeller.status]
 
 
+# ── SEO admin views ────────────────────────────────────────────────────────────
+# Usable today with zero frontend work — edit these directly at /admin until a
+# dedicated SEO dashboard page exists (see SEO_ROADMAP.md).
+
+class SeoMetaOverrideAdmin(ModelView, model=SeoMetaOverride):
+    column_list = [SeoMetaOverride.id, SeoMetaOverride.path, SeoMetaOverride.title,
+                   SeoMetaOverride.robots, SeoMetaOverride.updated_at]
+    column_searchable_list = [SeoMetaOverride.path, SeoMetaOverride.title]
+    form_columns = [SeoMetaOverride.path, SeoMetaOverride.title, SeoMetaOverride.meta_description,
+                    SeoMetaOverride.og_image, SeoMetaOverride.robots, SeoMetaOverride.notes]
+
+
+class SeoRobotsRuleAdmin(ModelView, model=SeoRobotsRule):
+    column_list = [SeoRobotsRule.id, SeoRobotsRule.user_agent,
+                   SeoRobotsRule.is_active, SeoRobotsRule.updated_at]
+    column_filters = [SeoRobotsRule.is_active]
+
+
 # ── Registration function ─────────────────────────────────────────────────────
 
 def register_views(admin_app, vendor_admin_app, gift_admin_app):
@@ -232,6 +251,7 @@ def register_views(admin_app, vendor_admin_app, gift_admin_app):
         VendorReviewAdmin, SubscriptionPlanAdmin, VendorSubscriptionAdmin,
         GiftCategoryAdmin, GiftProductAdmin, GiftOrderAdmin,
         MarketplaceOrderAdmin, ScheduledDeliveryAdmin, GiftSellerAdmin,
+        SeoMetaOverrideAdmin, SeoRobotsRuleAdmin,
     ]:
         admin_app.add_view(view)
 

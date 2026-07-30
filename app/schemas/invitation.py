@@ -2,6 +2,7 @@ from __future__ import annotations
 from typing import Optional, List
 from datetime import datetime
 from pydantic import BaseModel, HttpUrl
+from app.seo.schemas import SeoMetaOut
 
 
 # ── BrideGroom ───────────────────────────────────────────────────────────────
@@ -204,3 +205,6 @@ class CoupleWebsiteDetail(CoupleWebsiteRead):
     stories: List[StoryRead] = []
     events: List[EventRead] = []
     countdown: Optional[CountdownRead] = None
+    # Populated explicitly by the router (app.seo.generator.build_wedding_meta),
+    # not derived from the ORM object — CoupleWebsite has no .seo attribute.
+    seo: Optional[SeoMetaOut] = None

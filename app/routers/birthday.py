@@ -35,6 +35,7 @@ from app.schemas.birthday import (
     BirthdayRSVPCreate, BirthdayRSVPRead,
     BirthdayCountdownBase, BirthdayCountdownRead,
 )
+from app.seo.generator import build_birthday_meta
 
 router = APIRouter(prefix="/api/birthday", tags=["birthday"])
 
@@ -96,7 +97,10 @@ async def create_page(
 
 @router.get("/pages/{slug}/", response_model=BirthdayPageDetail)
 async def get_page(slug: str, db: AsyncSession = Depends(get_db)):
-    return await get_page_or_404(slug, db)
+    page = await get_page_or_404(slug, db)
+    detail = BirthdayPageDetail.model_validate(page)
+    detail.seo = await build_birthday_meta(db, page)
+    return detail
 
 
 @router.put("/pages/{slug}/", response_model=BirthdayPageRead)

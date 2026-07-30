@@ -41,6 +41,7 @@ from app.schemas.invitation import (
     WeddingPhotoRead,
     WeddingVendorAdd, WeddingVendorRead,
 )
+from app.seo.generator import build_wedding_meta
 
 router = APIRouter(prefix="/api/invitations", tags=["invitations"])
 
@@ -106,7 +107,10 @@ async def create_website(
 
 @router.get("/websites/{slug}/", response_model=CoupleWebsiteDetail)
 async def get_website(slug: str, db: AsyncSession = Depends(get_db)):
-    return await get_website_or_404(slug, db)
+    website = await get_website_or_404(slug, db)
+    detail = CoupleWebsiteDetail.model_validate(website)
+    detail.seo = await build_wedding_meta(db, website)
+    return detail
 
 
 @router.put("/websites/{slug}/", response_model=CoupleWebsiteRead)

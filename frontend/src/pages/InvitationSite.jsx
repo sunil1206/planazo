@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import { weddingApi } from '../lib/eventsApi'
+import Seo from '../components/Seo'
 
 // ── Map the real backend CoupleWebsiteDetail response onto the same shape ──────
 // this page's UI already expects (kept identical to the old mock/localStorage
@@ -29,6 +30,7 @@ function mapWebsiteToSite(w) {
       id: s.id, emoji: '✨', title: s.title || '', description: s.desc || '',
       date: s.date ? s.date.slice(0, 10) : '', photo: s.image || null,
     })),
+    seo: w.seo || null,
   }
 }
 
@@ -735,6 +737,10 @@ export default function InvitationSite() {
 
   return (
     <div className="min-h-screen" style={{ background: th.bg, color: '#f0e6d3', fontFamily: "'Georgia', 'Times New Roman', serif" }}>
+
+      {/* Skip in preview — the editor iframe shouldn't hijack the parent
+          dashboard tab's title/meta tags. */}
+      {!isPreview && <Seo seo={inv.seo} fallbackTitle={`${inv.coupleName} — Wedding Invitation | Planazo`} />}
 
       {/* Star field — skip in preview for performance */}
       {!isPreview && (

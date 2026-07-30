@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import { birthdayApi } from '../lib/eventsApi'
+import Seo from '../components/Seo'
 
 // Maps the real backend BirthdayPageDetail response onto the same shape this
 // page's UI already expects (kept identical to the old mock/localStorage shape
@@ -29,6 +30,7 @@ function mapPageToSite(p) {
     vendors: [],
     views: p.views || 0,
     status: p.is_published ? 'live' : 'draft',
+    seo: p.seo || null,
   }
 }
 
@@ -789,6 +791,10 @@ export default function BirthdaySite() {
 
   return (
     <div style={{ background: th.bg, minHeight: isPreview ? 'auto' : '100vh', color: 'white', fontFamily: 'system-ui,-apple-system,sans-serif', overflowX: 'hidden', position: 'relative' }}>
+
+      {/* Skip in preview — the editor iframe shouldn't hijack the parent
+          dashboard tab's title/meta tags. */}
+      {!isPreview && <Seo seo={inv.seo} fallbackTitle={`${inv.personFullName || inv.eventTitle} | Planazo`} />}
 
       {/* Stars */}
       {!isPreview && (

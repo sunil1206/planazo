@@ -4,11 +4,36 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/logo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Planazo</title>
+
+    <!-- Baseline SEO — a sane fallback for any route that doesn't render its
+         own <Seo> (see src/components/Seo.jsx). Pages that do call <Seo>
+         override title/description via React 19's native <title>/<meta>
+         hoisting; React de-dupes by tag, so the static ones below just get
+         replaced, never duplicated. -->
+    <title>Planazo — Plan Weddings, Birthdays & Events</title>
+    <meta name="description" content="Planazo is an all-in-one platform for wedding invitations, birthday pages, custom events, vendor discovery, and gifting — plan everything in one place." />
+    <meta name="robots" content="index,follow" />
+    <meta property="og:site_name" content="Planazo" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Planazo — Plan Weddings, Birthdays & Events" />
+    <meta property="og:description" content="An all-in-one platform for wedding invitations, birthday pages, custom events, vendor discovery, and gifting." />
+    <meta property="og:image" content="/logo.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&display=swap" rel="stylesheet">
     <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+    <!-- Site-wide identity schema — doesn't change per-request, so it's
+         static rather than fetched. Per-page schema (Event/LocalBusiness/
+         Product/BreadcrumbList) is injected dynamically by <Seo>. -->
+    <script type="application/ld+json">
+      {"@context":"https://schema.org","@type":"Organization","name":"Planazo","url":"https://planazo.in","logo":"https://planazo.in/logo.png"}
+    </script>
+    <script type="application/ld+json">
+      {"@context":"https://schema.org","@type":"WebSite","name":"Planazo","url":"https://planazo.in"}
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -2,6 +2,7 @@ from __future__ import annotations
 from typing import Optional, List
 from datetime import datetime
 from pydantic import BaseModel
+from app.seo.schemas import SeoMetaOut
 
 
 class BirthdayEventBase(BaseModel):
@@ -115,3 +116,5 @@ class BirthdayPageDetail(BirthdayPageRead):
     stories: List[BirthdayStoryRead] = []
     wishes: List[BirthdayWishRead] = []
     countdown: Optional[BirthdayCountdownRead] = None
+    # Populated explicitly by the router (app.seo.generator.build_birthday_meta).
+    seo: Optional[SeoMetaOut] = None
