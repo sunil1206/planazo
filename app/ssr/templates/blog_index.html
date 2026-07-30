@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block breadcrumb %}
+<nav class="breadcrumb" aria-label="breadcrumb">
+  <a href="{{ site_url }}">Home</a> &rsaquo;
+  <span aria-current="page">Blog</span>
+</nav>
+{% endblock %}
+{% block content %}
+<h1>Planazo Blog</h1>
+<p class="subtitle">Wedding planning, vendor guides, and celebration ideas.</p>
+
+{% if posts %}
+<section aria-label="Blog posts" class="grid">
+  {% for p in posts %}
+  <article class="card">
+    {% if p.cover_image_url %}<img src="{{ p.cover_image_url }}" alt="{{ p.title }}" loading="lazy">{% endif %}
+    <h2 style="margin:12px 0 4px;font-size:17px;"><a href="/blog/{{ p.slug }}">{{ p.title }}</a></h2>
+    {% if p.excerpt %}<p style="color:rgba(255,255,255,0.55);font-size:14px;">{{ p.excerpt }}</p>{% endif %}
+    <p style="color:rgba(255,255,255,0.35);font-size:12px;">{{ p.published_at }}</p>
+  </article>
+  {% endfor %}
+</section>
+{% else %}
+<p class="subtitle">No posts published yet — check back soon.</p>
+{% endif %}
+{% endblock %}

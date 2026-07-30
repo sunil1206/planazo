@@ -100,6 +100,12 @@ class Settings(BaseSettings):
     OPENAI_MODEL: str = "gpt-4o-mini"
     OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-small"
 
+    # ── SEO — PageSpeed Insights (Core Web Vitals) ────────────────────────────
+    # Optional: PSI works unauthenticated too, just at a much lower rate limit
+    # (~1 request/second vs. much higher with a free key from Google Cloud
+    # Console — enable the "PageSpeed Insights API" on any GCP project).
+    PAGESPEED_API_KEY: str = ""
+
     # ── WhatsApp Business API ─────────────────────────────────────────────────
     WHATSAPP_API_URL: str = ""
     WHATSAPP_API_TOKEN: str = ""

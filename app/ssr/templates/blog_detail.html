@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block breadcrumb %}
+<nav class="breadcrumb" aria-label="breadcrumb">
+  <a href="{{ site_url }}">Home</a> &rsaquo;
+  <a href="/blog">Blog</a> &rsaquo;
+  <span aria-current="page">{{ post.title }}</span>
+</nav>
+{% endblock %}
+{% block content %}
+{% if post.cover_image_url %}<img src="{{ post.cover_image_url }}" alt="{{ post.title }}" loading="lazy" style="width:100%;max-height:360px;object-fit:cover;margin-bottom:16px;">{% endif %}
+<h1>{{ post.title }}</h1>
+<p class="subtitle">By {{ post.author_name }}{% if post.published_at %} &middot; {{ post.published_at }}{% endif %}</p>
+{% if post.tags %}
+<div class="tag-list" style="margin-bottom:20px;">
+  {% for t in post.tags %}<span class="badge">{{ t }}</span>{% endfor %}
+</div>
+{% endif %}
+<div class="article-body">{{ post.content | safe }}</div>
+
+<p style="margin-top:32px;">
+  <a class="cta" href="/blog">More from the Blog</a>
+</p>
+{% endblock %}

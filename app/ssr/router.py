@@ -27,7 +27,7 @@ from app.database.base import get_db
 from app.seo.slugs import slugify, unslugify_title
 from app.seo.generator import (
     _abs_media, _abs_url, _truncate, SITE_NAME,
-    breadcrumb_schema, item_list_schema, faq_schema, build_vendor_meta,
+    breadcrumb_schema, item_list_schema, faq_schema, build_vendor_meta, build_blog_meta,
 )
 from app.ssr import queries as q
 
@@ -199,4 +199,54 @@ async def vendor_detail(category_slug: str, city_slug: str, slug: str, request: 
         },
         packages=[{"name": p.name, "price": p.price, "description": p.description} for p in vendor.packages if p.is_available],
         portfolio=portfolio, reviews=reviews, related_vendors=related_vendors,
+    )
+
+
+# ── Blog: /blog, /blog/{slug} ────────────────────────────────────────────────
+
+@router.get("/blog", response_class=HTMLResponse, include_in_schema=False)
+async def blog_index(request: Request, db: AsyncSession = Depends(get_db)):
+    posts = await q.list_published_blog_posts(db)
+    path = "/blog"
+    url = _abs_url(path)
+    title = f"Blog | {SITE_NAME}"
+    description = "Wedding planning guides, vendor spotlights, and celebration ideas from Planazo."
+    meta = {
+        "title": title, "description": description, "canonical_url": url,
+        "og_title": title, "og_description": description, "og_type": "website",
+        "twitter_card": "summary_large_image", "robots": "index,follow" if posts else "noindex,follow",
+    }
+    json_ld = [
+        breadcrumb_schema([{"name": "Home", "path": "/"}, {"name": "Blog", "path": path}]),
+        item_list_schema(
+            [{"name": p.title, "url": _abs_url(f"/blog/{p.slug}")} for p in posts], name="Planazo Blog",
+        ),
+    ]
+    return _render(request, "blog_index.html", meta=meta, json_ld=json_ld, posts=[
+        {"slug": p.slug, "title": p.title, "excerpt": p.excerpt,
+         "cover_image_url": _abs_media(p.cover_image),
+         "published_at": p.published_at.date().isoformat() if p.published_at else ""}
+        for p in posts
+    ])
+
+
+@router.get("/blog/{slug}", response_class=HTMLResponse, include_in_schema=False)
+async def blog_detail(slug: str, request: Request, db: AsyncSession = Depends(get_db)):
+    post = await q.get_published_blog_post(db, slug)
+    if not post:
+        return _not_found(request)
+
+    seo = await build_blog_meta(db, post)
+    meta = {
+        "title": seo.title, "description": seo.description, "canonical_url": seo.canonical_url,
+        "og_title": seo.og_title, "og_description": seo.og_description, "og_image": seo.og_image,
+        "og_type": seo.og_type, "twitter_card": seo.twitter_card, "robots": seo.robots,
+    }
+    return _render(
+        request, "blog_detail.html", meta=meta, json_ld=seo.json_ld,
+        post={
+            "title": post.title, "content": post.content, "author_name": post.author_name,
+            "tags": post.tags or [], "cover_image_url": _abs_media(post.cover_image),
+            "published_at": post.published_at.date().isoformat() if post.published_at else "",
+        },
     )

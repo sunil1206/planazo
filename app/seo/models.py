@@ -22,7 +22,7 @@ lifespan hook) creates them automatically. The Alembic migrations in
 app/alembic/versions/000{3,4}_*.py exist for deployment discipline/parity
 with prior migrations, not because they're strictly required.
 """
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, JSON
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, JSON, Text, Float
 from sqlalchemy.sql import func
 from app.database.base import Base
 
@@ -99,3 +99,68 @@ class SeoRedirect(Base):
 
     def __repr__(self) -> str:
         return f"<SeoRedirect {self.source_path!r} -> {self.target_path!r}>"
+
+
+class SeoPerformanceSnapshot(Base):
+    """One real Core Web Vitals reading for one path, from Google's own
+    PageSpeed Insights API (app/seo/pagespeed.py) — never estimated or
+    fabricated. Admin-triggered (POST /api/seo/admin/performance/check),
+    kept as a history so score changes over time are visible, not just the
+    latest snapshot.
+    """
+    __tablename__ = "seo_performance_snapshots"
+
+    id                = Column(Integer, primary_key=True, index=True)
+    path              = Column(String(500), nullable=False, index=True)
+    strategy          = Column(String(10), nullable=False, default="mobile")  # "mobile" | "desktop"
+    performance_score = Column(Integer, nullable=True)   # 0-100, Lighthouse performance category
+    lcp_ms            = Column(Float, nullable=True)      # Largest Contentful Paint, milliseconds
+    cls               = Column(Float, nullable=True)      # Cumulative Layout Shift, unitless
+    tbt_ms            = Column(Float, nullable=True)      # Total Blocking Time, milliseconds (lab proxy for INP)
+    fcp_ms            = Column(Float, nullable=True)      # First Contentful Paint, milliseconds
+    fetched_at        = Column(DateTime(timezone=True), server_default=func.now())
+
+    def __repr__(self) -> str:
+        return f"<SeoPerformanceSnapshot {self.path!r} {self.strategy} score={self.performance_score}>"
+
+
+class BlogPost(Base):
+    """A Planazo blog post — real, admin-authored SEO content (no AI
+    generation wired in; OPENAI_API_KEY already exists in app/core/config.py
+    for a future draft-assist feature, see SEO_ROADMAP.md).
+    """
+    __tablename__ = "blog_posts"
+
+    id            = Column(Integer, primary_key=True, index=True)
+    slug          = Column(String(200), unique=True, nullable=False, index=True)
+    title         = Column(String(255), nullable=False)
+    excerpt       = Column(String(300), default="")
+    content       = Column(Text, nullable=False, default="")  # HTML, authored in /admin
+    cover_image   = Column(String(500), nullable=True)
+    author_name   = Column(String(100), default="Planazo Team")
+    tags          = Column(JSON, default=list)
+    status        = Column(String(10), nullable=False, default="draft")  # "draft" | "published"
+    published_at  = Column(DateTime(timezone=True), nullable=True)
+    created_at    = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at    = Column(DateTime(timezone=True), onupdate=func.now())
+
+    def __repr__(self) -> str:
+        return f"<BlogPost {self.slug!r} status={self.status}>"
+
+
+class SeoSearchConsoleToken(Base):
+    """Single-row table holding the OAuth refresh token for Planazo's
+    connected Google Search Console property (see app/seo/search_console.py).
+    Populated by the admin-only OAuth flow at /api/seo/admin/gsc/connect —
+    never returned in any API response, read only server-side.
+    """
+    __tablename__ = "seo_search_console_token"
+
+    id              = Column(Integer, primary_key=True, index=True)
+    site_url        = Column(String(255), nullable=False)   # e.g. "https://planazo.in/" — must match GSC-verified property exactly
+    refresh_token   = Column(Text, nullable=False)
+    connected_by    = Column(String(254), nullable=True)     # admin's email, for audit visibility only
+    connected_at    = Column(DateTime(timezone=True), server_default=func.now())
+
+    def __repr__(self) -> str:
+        return f"<SeoSearchConsoleToken site_url={self.site_url!r}>"

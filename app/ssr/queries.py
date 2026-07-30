@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.vendor import VendorCategory, VendorWebsite, VendorReview, VendorPortfolioImage
+from app.seo.models import BlogPost
 from app.seo.slugs import slugify
 
 
@@ -143,3 +144,20 @@ async def get_portfolio_images(db: AsyncSession, vendor_id: int, limit: int = 12
         .limit(limit)
     )
     return list(result.scalars().all())
+
+
+async def list_published_blog_posts(db: AsyncSession, limit: int = 50) -> List[BlogPost]:
+    result = await db.execute(
+        select(BlogPost)
+        .where(BlogPost.status == "published")
+        .order_by(BlogPost.published_at.desc())
+        .limit(limit)
+    )
+    return list(result.scalars().all())
+
+
+async def get_published_blog_post(db: AsyncSession, slug: str) -> Optional[BlogPost]:
+    result = await db.execute(
+        select(BlogPost).where(BlogPost.slug == slug, BlogPost.status == "published")
+    )
+    return result.scalar_one_or_none()

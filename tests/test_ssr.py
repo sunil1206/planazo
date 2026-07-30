@@ -12,10 +12,13 @@ import pytest_asyncio
 from fastapi import FastAPI
 from httpx import AsyncClient, ASGITransport
 
+from datetime import datetime, timezone
+
 from app.models.vendor import VendorCategory, VendorWebsite, VendorReview
+from app.seo.models import BlogPost
 from app.ssr.router import router as ssr_router
 from app.ssr import queries as q
-from app.seo.generator import build_vendor_meta
+from app.seo.generator import build_vendor_meta, build_blog_meta
 from app.seo.slugs import slugify
 
 pytestmark = pytest.mark.asyncio
@@ -170,3 +173,56 @@ async def test_list_related_cities_excludes_current(db_session, make_user):
     related = await q.list_related_cities(db_session, cat.key, "paris")
     assert "Berlin" in related
     assert "Paris" not in related
+
+
+# ── Blog ──────────────────────────────────────────────────────────────────────
+
+async def test_blog_index_lists_only_published(ssr_client, db_session):
+    db_session.add_all([
+        BlogPost(slug="published-post", title="Published Post", status="published",
+                 published_at=datetime.now(timezone.utc)),
+        BlogPost(slug="draft-post", title="Draft Post", status="draft"),
+    ])
+    await db_session.commit()
+
+    resp = await ssr_client.get("/blog")
+    assert resp.status_code == 200
+    assert "Published Post" in resp.text
+    assert "Draft Post" not in resp.text
+
+
+async def test_blog_detail_renders_article_schema(ssr_client, db_session):
+    db_session.add(BlogPost(
+        slug="ten-wedding-tips", title="10 Wedding Planning Tips", status="published",
+        content="<p>Real advice here.</p>", author_name="Priya Sharma",
+        published_at=datetime.now(timezone.utc),
+    ))
+    await db_session.commit()
+
+    resp = await ssr_client.get("/blog/ten-wedding-tips")
+    assert resp.status_code == 200
+    assert "10 Wedding Planning Tips" in resp.text
+    assert "Real advice here." in resp.text
+    assert "Priya Sharma" in resp.text
+    assert "Article" in resp.text
+
+
+async def test_blog_detail_404_for_draft(ssr_client, db_session):
+    db_session.add(BlogPost(slug="secret-draft", title="Secret Draft", status="draft"))
+    await db_session.commit()
+
+    resp = await ssr_client.get("/blog/secret-draft")
+    assert resp.status_code == 404
+
+
+async def test_build_blog_meta_uses_blog_path(db_session):
+    post = BlogPost(slug="my-post", title="My Post", excerpt="Short summary", status="published",
+                     published_at=datetime.now(timezone.utc))
+    db_session.add(post)
+    await db_session.commit()
+    await db_session.refresh(post)
+
+    seo = await build_blog_meta(db_session, post)
+    assert seo.canonical_url.endswith("/blog/my-post")
+    assert seo.robots == "index,follow"
+    assert any(s["@type"] == "Article" for s in seo.json_ld)

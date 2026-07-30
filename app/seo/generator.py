@@ -251,6 +251,34 @@ def product_schema(
     return schema
 
 
+def article_schema(
+    *,
+    headline: str,
+    description: str,
+    url: str,
+    image: Optional[str] = None,
+    author_name: str = "Planazo Team",
+    date_published: Optional[str] = None,
+    date_modified: Optional[str] = None,
+) -> Dict[str, Any]:
+    schema: Dict[str, Any] = {
+        "@context": "https://schema.org",
+        "@type": "Article",
+        "headline": headline,
+        "description": description,
+        "url": url,
+        "author": {"@type": "Organization", "name": author_name},
+        "publisher": organization_schema(),
+    }
+    if image:
+        schema["image"] = [image]
+    if date_published:
+        schema["datePublished"] = date_published
+    if date_modified:
+        schema["dateModified"] = date_modified
+    return schema
+
+
 def faq_schema(qa_pairs: List[Dict[str, str]]) -> Dict[str, Any]:
     """qa_pairs: [{"question": "...", "answer": "..."}, ...]"""
     return {
@@ -477,6 +505,43 @@ async def build_product_meta(db: AsyncSession, product) -> SeoMetaOut:
         og_image=image,
         og_type="product",
         robots="index,follow" if product.is_available else "noindex,follow",
+        json_ld=json_ld,
+    )
+    return _apply_override(resolved, await _get_override(db, path))
+
+
+async def build_blog_meta(db: AsyncSession, post) -> SeoMetaOut:
+    """post: app.seo.models.BlogPost. Wired into app/ssr/router.py's
+    /blog/{slug} page."""
+    path = f"/blog/{post.slug}"
+    url = _abs_url(path)
+
+    title = f"{post.title} | {SITE_NAME} Blog"
+    description = _truncate(post.excerpt or post.title, 160)
+    image = _abs_media(post.cover_image) or _abs_url(DEFAULT_OG_IMAGE)
+
+    json_ld = [
+        article_schema(
+            headline=post.title,
+            description=description,
+            url=url,
+            image=image,
+            author_name=post.author_name or "Planazo Team",
+            date_published=post.published_at.isoformat() if post.published_at else None,
+            date_modified=post.updated_at.isoformat() if post.updated_at else None,
+        ),
+        breadcrumb_schema([{"name": "Home", "path": "/"}, {"name": "Blog", "path": "/blog"}, {"name": post.title, "path": path}]),
+    ]
+
+    resolved = SeoMetaOut(
+        title=title,
+        description=description,
+        canonical_url=url,
+        og_title=title,
+        og_description=description,
+        og_image=image,
+        og_type="article",
+        robots="index,follow" if post.status == "published" else "noindex,nofollow",
         json_ld=json_ld,
     )
     return _apply_override(resolved, await _get_override(db, path))

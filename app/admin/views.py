@@ -33,7 +33,10 @@ from app.models.birthday import (
     BirthdayRSVP, BirthdayCountdown,
 )
 from app.models.payment import UserSubscription, Transaction
-from app.seo.models import SeoMetaOverride, SeoRobotsRule, SeoRedirect
+from app.seo.models import (
+    SeoMetaOverride, SeoRobotsRule, SeoRedirect,
+    SeoPerformanceSnapshot, BlogPost,
+)
 
 
 # ── Main admin views ──────────────────────────────────────────────────────────
@@ -247,6 +250,27 @@ class SeoRedirectAdmin(ModelView, model=SeoRedirect):
                     SeoRedirect.status_code, SeoRedirect.is_active]
 
 
+class SeoPerformanceSnapshotAdmin(ModelView, model=SeoPerformanceSnapshot):
+    """Read-only history — snapshots are only ever created via the real
+    PageSpeed Insights API call (POST /api/seo/admin/performance/check),
+    never hand-edited."""
+    column_list = [SeoPerformanceSnapshot.id, SeoPerformanceSnapshot.path, SeoPerformanceSnapshot.strategy,
+                   SeoPerformanceSnapshot.performance_score, SeoPerformanceSnapshot.lcp_ms,
+                   SeoPerformanceSnapshot.cls, SeoPerformanceSnapshot.fetched_at]
+    column_filters = [SeoPerformanceSnapshot.path, SeoPerformanceSnapshot.strategy]
+    can_create = False
+    can_edit = False
+
+
+class BlogPostAdmin(ModelView, model=BlogPost):
+    column_list = [BlogPost.id, BlogPost.title, BlogPost.slug, BlogPost.status,
+                   BlogPost.author_name, BlogPost.published_at]
+    column_searchable_list = [BlogPost.title, BlogPost.slug]
+    column_filters = [BlogPost.status]
+    form_columns = [BlogPost.slug, BlogPost.title, BlogPost.excerpt, BlogPost.content,
+                    BlogPost.cover_image, BlogPost.author_name, BlogPost.tags, BlogPost.status]
+
+
 # ── Registration function ─────────────────────────────────────────────────────
 
 def register_views(admin_app, vendor_admin_app, gift_admin_app):
@@ -264,6 +288,7 @@ def register_views(admin_app, vendor_admin_app, gift_admin_app):
         GiftCategoryAdmin, GiftProductAdmin, GiftOrderAdmin,
         MarketplaceOrderAdmin, ScheduledDeliveryAdmin, GiftSellerAdmin,
         SeoMetaOverrideAdmin, SeoRobotsRuleAdmin, SeoRedirectAdmin,
+        SeoPerformanceSnapshotAdmin, BlogPostAdmin,
     ]:
         admin_app.add_view(view)
 

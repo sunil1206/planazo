@@ -160,45 +160,67 @@ not an SEO task. Worth prioritizing independent of anything else here.
 ## Part 2 — What a full Semrush/Ahrefs-style system needs (and why it's phased separately)
 
 The original spec asked for rank tracking, competitor analysis, backlink
-monitoring, domain authority, and Core Web Vitals reporting. These are
-real, valuable features — but unlike everything in Part 1, **they can't be
-honestly built from data Planazo already has**. Faking them (hardcoded
-numbers, a "Domain Authority: 42" that isn't backed by a real crawl) would
-be worse than not having them, since a merchant/vendor dashboard showing
-fabricated metrics erodes trust the moment someone checks Google Search
-Console directly and sees different numbers.
+monitoring, domain authority, Core Web Vitals reporting, and search
+performance data. These are real, valuable features — but unlike
+everything in Part 1, most of them **can't be honestly built from data
+Planazo already has**. Faking them (hardcoded numbers, a "Domain
+Authority: 42" that isn't backed by a real crawl) would be worse than not
+having them, since a dashboard showing fabricated metrics erodes trust the
+moment someone checks Google Search Console directly and sees different
+numbers. The free/automatable pieces are now built; the paid pieces are
+still deliberately deferred.
 
-| Feature | What it actually requires |
-|---|---|
-| Keyword rank tracking | A paid SERP API (e.g. DataForSEO, SerpApi, Zenserp) — Google has no free API for "what position does my page rank at for X keyword." Budget: typically $0.001–0.01 per keyword check; daily tracking of 100 keywords ≈ $3–30/month depending on provider. |
-| Organic traffic / Search Console data | Google Search Console API — free, but requires the domain to be verified in GSC and the integration to request read access via OAuth. This one's genuinely free and should be the first Part 2 item built. |
-| Core Web Vitals | Google PageSpeed Insights API / CrUX API — free, rate-limited. Also genuinely buildable without a paid subscription. |
-| Backlinks / Domain Authority | Proprietary crawl indexes owned by Ahrefs, Semrush, or Moz. There is no free or self-hostable equivalent — this data literally does not exist anywhere except behind those companies' paid APIs (Moz's is the cheapest starting point, ~$99+/month for API access). |
-| Competitor analysis (Vistaprint, Zola, WeddingWire, Etsy, Canva) | Same backlink/traffic-estimate data sources as above, applied to a domain you don't control. Same cost floor. |
-| AI content assistant (blog outlines, full articles) | An LLM API call (Claude/GPT) plus a review workflow — genuinely buildable today with no blocker, but there's no blog/article model in the database yet (`app/models/` has none), so this needs a `BlogPost` model + admin editorial workflow before "AI writes it" is useful. |
+| Feature | Status | What it actually requires |
+|---|---|---|
+| Core Web Vitals | **Built** — `app/seo/pagespeed.py`, `POST/GET /api/seo/admin/performance*` | Google PageSpeed Insights API v5. Free, unauthenticated at a lower rate limit; set `PAGESPEED_API_KEY` in `.env.production` to raise it. Every score/metric returned is a real Lighthouse run against the live URL — nothing estimated. Admin triggers a check per path from `/api/docs` today (no dashboard button yet); results persist in `seo_performance_snapshots` and are viewable/filterable at `/admin`. |
+| Blog | **Built** — `BlogPost` model, admin CRUD, `app/ssr/` pages at `/blog` and `/blog/:slug` | Admin-authored only. No AI drafting was built — that needs an LLM API key (Claude/GPT) the user hasn't provided, plus a review step before publish. Posts are created/edited at `/admin` (SQLAdmin) or via `/api/seo/admin/blog`; publishing sets `Article` + `BreadcrumbList` JSON-LD and adds the post to `/sitemap.xml` automatically. |
+| Organic traffic / Search Console data | **Code built, not yet connected** — `app/seo/search_console.py`, `/api/seo/admin/gsc/*` | Google Search Console API — free, but needs two one-time manual steps outside this codebase (see below) before any real data flows. Until then `/gsc/status` reports `connected: false` and `/gsc/report` returns 409 — never fabricated numbers. |
+| Keyword rank tracking | Not built | A paid SERP API (e.g. DataForSEO, SerpApi, Zenserp) — Google has no free API for "what position does my page rank at for X keyword." Budget: typically $0.001–0.01 per keyword check; daily tracking of 100 keywords ≈ $3–30/month depending on provider. Needs a provider + API key from the user before it's worth building. |
+| Backlinks / Domain Authority | Not built | Proprietary crawl indexes owned by Ahrefs, Semrush, or Moz. No free or self-hostable equivalent — this data literally does not exist anywhere except behind those companies' paid APIs (Moz's is the cheapest starting point, ~$99+/month for API access). |
+| Competitor analysis (Vistaprint, Zola, WeddingWire, Etsy, Canva) | Not built | Same backlink/traffic-estimate data sources as above, applied to a domain you don't control. Same cost floor. |
 
-### Suggested build order for Part 2
+### Google Search Console — manual steps required before it shows real data
 
-1. **Google Search Console integration** (free) — real indexed-page counts,
-   real click/impression data, real average position. This alone covers
-   "keyword ranking" and "organic traffic" from the original dashboard spec
-   honestly.
-2. **Core Web Vitals via PageSpeed Insights API** (free) — real performance
-   scores per page, refreshed on a schedule.
-3. **Blog model + AI drafting workflow** — new `BlogPost` table, admin
-   create/edit/publish flow, LLM-assisted first-draft generation with a
-   human review step before publish (never auto-publish AI content
-   unreviewed).
-4. **Rank tracking** (paid, ~$3–30/month depending on keyword volume) — once
-   there's an actual budget line for it.
+The OAuth plumbing, token storage, and Search Analytics query code are all
+done and tested. Three things only the account owner can do are still
+outstanding:
+
+1. Verify `https://planazo.in/` in [Google Search
+   Console](https://search.google.com/search-console) under the Google
+   account that should own this data.
+2. In Google Cloud Console, on the existing OAuth client (same one used
+   for "Sign in with Google"), add
+   `https://planazo.in/api/seo/admin/gsc/callback` as an **Authorized
+   redirect URI**.
+3. While logged in as an admin, call `GET /api/seo/admin/gsc/connect`
+   (via `/api/docs` or curl with a Bearer token — there's no frontend
+   button yet) and visit the returned `authorization_url` to complete
+   Google's consent screen. This stores a refresh token; after that,
+   `GET /api/seo/admin/gsc/report?start_date=...&end_date=...` returns
+   real query/click/impression/position data.
+
+### Remaining build order for Part 2
+
+1. ~~Google Search Console integration (free)~~ — code done, awaiting the
+   three manual steps above.
+2. ~~Core Web Vitals via PageSpeed Insights API (free)~~ — done.
+3. ~~Blog model~~ — done (admin-authored). AI drafting is a separate,
+   still-unbuilt step once an LLM key is provided.
+4. **Rank tracking** (paid, ~$3–30/month depending on keyword volume) —
+   once there's a provider + API key.
 5. **Backlinks / competitor analysis / domain authority** (paid,
    $99+/month) — last, since it's the most expensive and the least
-   actionable day-to-day (it's monitoring, not something you act on weekly).
+   actionable day-to-day (it's monitoring, not something you act on
+   weekly).
 
 ## Verification
 
-Backend: `pytest tests/` passes; `app/seo/*.py` syntax-checked;
-`Base.metadata` mapper configuration verified with the new tables included.
-Frontend: `Seo.jsx` uses React 19's native `<title>`/`<meta>`/`<link>`
-head-hoisting (already the installed React version — no new dependency
-added).
+Backend: `pytest tests/test_seo.py tests/test_ssr.py tests/test_seo_part2.py`
+— 29 + 13 + 10 = 52 tests, all passing (PageSpeed Insights and Search
+Console's real Google HTTP calls are mocked at the `httpx` client boundary
+so the parsing/plumbing code runs for real without network access).
+`Base.metadata` mapper configuration verified with `seo_performance_snapshots`,
+`blog_posts`, and `seo_search_console_token` included. Migration `0006`
+creates all three tables. Frontend: `Seo.jsx` uses React 19's native
+`<title>`/`<meta>`/`<link>` head-hoisting (already the installed React
+version — no new dependency added).

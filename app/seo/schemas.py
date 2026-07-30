@@ -167,3 +167,86 @@ class SeoRedirectResponse(BaseModel):
     redirect: bool = True
     target_path: str
     status_code: int = 301
+
+
+# ── Core Web Vitals (real PageSpeed Insights data) ──────────────────────────────
+
+class PerformanceCheckRequest(BaseModel):
+    path: str  # site-relative, e.g. "/" or "/vendors/wedding-planners/paris"
+    strategy: str = "mobile"
+
+
+class SeoPerformanceSnapshotRead(BaseModel):
+    id: int
+    path: str
+    strategy: str
+    performance_score: Optional[int] = None
+    lcp_ms: Optional[float] = None
+    cls: Optional[float] = None
+    tbt_ms: Optional[float] = None
+    fcp_ms: Optional[float] = None
+    fetched_at: datetime
+    model_config = {"from_attributes": True}
+
+
+# ── Blog ─────────────────────────────────────────────────────────────────────
+
+class BlogPostCreate(BaseModel):
+    slug: str
+    title: str
+    excerpt: str = ""
+    content: str = ""
+    cover_image: Optional[str] = None
+    author_name: str = "Planazo Team"
+    tags: List[str] = Field(default_factory=list)
+    status: str = "draft"
+
+
+class BlogPostUpdate(BaseModel):
+    title: Optional[str] = None
+    excerpt: Optional[str] = None
+    content: Optional[str] = None
+    cover_image: Optional[str] = None
+    author_name: Optional[str] = None
+    tags: Optional[List[str]] = None
+    status: Optional[str] = None
+
+
+class BlogPostRead(BaseModel):
+    id: int
+    slug: str
+    title: str
+    excerpt: str
+    content: str
+    cover_image: Optional[str] = None
+    author_name: str
+    tags: List[str]
+    status: str
+    published_at: Optional[datetime] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    model_config = {"from_attributes": True}
+
+
+# ── Google Search Console ───────────────────────────────────────────────────────
+
+class GscStatus(BaseModel):
+    connected: bool
+    site_url: Optional[str] = None
+    connected_at: Optional[datetime] = None
+    connected_by: Optional[str] = None
+
+
+class GscReportRow(BaseModel):
+    keys: List[str]     # the query text and/or page URL, per requested dimensions
+    clicks: int
+    impressions: int
+    ctr: float
+    position: float
+
+
+class GscReport(BaseModel):
+    start_date: str
+    end_date: str
+    dimensions: List[str]
+    rows: List[GscReportRow]

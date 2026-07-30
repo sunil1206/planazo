@@ -92,6 +92,15 @@ async def collect_sitemap_urls(db: AsyncSession) -> List[SitemapUrl]:
                     _date(v.created_at), "monthly", "0.6", "vendor-detail",
                 ))
 
+    # ── Blog (app/ssr/) ──────────────────────────────────────────────────────
+    blog_posts = await vendor_queries.list_published_blog_posts(db, limit=500)
+    if blog_posts:
+        urls.append(SitemapUrl(_abs("/blog"), _date(None), "weekly", "0.6", "blog-index"))
+        for post in blog_posts:
+            urls.append(SitemapUrl(
+                _abs(f"/blog/{post.slug}"), _date(post.updated_at or post.published_at), "monthly", "0.5", "blog-post",
+            ))
+
     return urls
 
 
