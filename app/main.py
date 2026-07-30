@@ -50,6 +50,8 @@ from app.routers.gifts_seller import router as gifts_seller_router
 from app.routers.razorpay_webhook import router as razorpay_webhook_router
 # SEO — /sitemap.xml, /robots.txt, admin meta-override + robots-rule CRUD
 from app.seo.router import router as seo_router
+# SSR SEO landing pages — /vendors/{category}[/{city}[/{slug}]]
+from app.ssr.router import router as ssr_router
 from app.admin.main import create_admin_instances
 from app.admin.views import register_views
 from app.middleware.error_handling import register_error_handlers
@@ -151,6 +153,7 @@ def create_app() -> FastAPI:
         razorpay_webhook_router,
         # SEO
         seo_router,
+        ssr_router,
     ]:
         app.include_router(router)
 

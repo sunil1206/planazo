@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ meta.title }}</title>
+<meta name="description" content="{{ meta.description }}">
+<link rel="canonical" href="{{ meta.canonical_url }}">
+<meta name="robots" content="{{ meta.robots }}">
+<meta property="og:title" content="{{ meta.og_title }}">
+<meta property="og:description" content="{{ meta.og_description }}">
+<meta property="og:type" content="{{ meta.og_type }}">
+<meta property="og:url" content="{{ meta.canonical_url }}">
+{% if meta.og_image %}<meta property="og:image" content="{{ meta.og_image }}">{% endif %}
+<meta name="twitter:card" content="{{ meta.twitter_card }}">
+<meta name="twitter:title" content="{{ meta.og_title }}">
+<meta name="twitter:description" content="{{ meta.og_description }}">
+{% if meta.og_image %}<meta name="twitter:image" content="{{ meta.og_image }}">{% endif %}
+{% for schema in json_ld %}
+<script type="application/ld+json">{{ schema | tojson }}</script>
+{% endfor %}
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: #060412; color: rgba(255,255,255,0.92);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.5;
+  }
+  a { color: #c4b5fd; text-decoration: none; }
+  a:hover { color: #ddd6fe; text-decoration: underline; }
+  header.site-header {
+    padding: 16px 24px; border-bottom: 1px solid rgba(255,255,255,0.08);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .logo { font-weight: 800; font-size: 18px; color: #fff; letter-spacing: -0.02em; }
+  nav.breadcrumb { font-size: 13px; color: rgba(255,255,255,0.5); padding: 14px 24px 0; }
+  nav.breadcrumb a { color: rgba(255,255,255,0.5); }
+  nav.breadcrumb span[aria-current] { color: rgba(255,255,255,0.85); }
+  main { max-width: 960px; margin: 0 auto; padding: 24px; }
+  h1 { font-size: 30px; font-weight: 800; letter-spacing: -0.02em; margin: 8px 0 6px; color: #fff; }
+  h2 { font-size: 20px; font-weight: 700; margin: 36px 0 14px; color: #fff; }
+  p.subtitle { color: rgba(255,255,255,0.55); font-size: 15px; margin: 0 0 20px; }
+  .card {
+    background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 14px; padding: 18px; margin-bottom: 14px;
+  }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600;
+    padding: 3px 10px; border-radius: 999px; background: rgba(20,184,166,0.14); color: #5eead4;
+    border: 1px solid rgba(20,184,166,0.3);
+  }
+  .cta {
+    display: inline-block; padding: 10px 20px; border-radius: 10px; font-weight: 700; font-size: 14px;
+    background: linear-gradient(135deg,#7c3aed,#4f46e5); color: #fff; margin-right: 10px; margin-top: 8px;
+  }
+  .cta:hover { text-decoration: none; opacity: 0.92; }
+  .cta.secondary { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); }
+  .tag-list { display: flex; flex-wrap: wrap; gap: 8px; }
+  .tag-list a {
+    font-size: 13px; padding: 6px 12px; border-radius: 999px; background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.75);
+  }
+  .review { border-bottom: 1px solid rgba(255,255,255,0.06); padding: 12px 0; }
+  .review:last-child { border-bottom: none; }
+  .stars { color: #fbbf24; font-size: 13px; }
+  img { max-width: 100%; border-radius: 10px; display: block; }
+  .portfolio-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  footer.site-footer {
+    border-top: 1px solid rgba(255,255,255,0.08); padding: 24px; margin-top: 40px;
+    color: rgba(255,255,255,0.35); font-size: 13px; text-align: center;
+  }
+  details.faq { border-bottom: 1px solid rgba(255,255,255,0.07); padding: 12px 0; }
+  details.faq summary { cursor: pointer; font-weight: 600; color: #fff; }
+  details.faq p { color: rgba(255,255,255,0.6); margin: 8px 0 0; }
+  :focus-visible { outline: 2px solid #a78bfa; outline-offset: 2px; }
+</style>
+</head>
+<body>
+<header class="site-header">
+  <a class="logo" href="{{ site_url }}">Planazo</a>
+  <a class="cta secondary" href="{{ site_url }}" style="margin:0;padding:8px 16px;">Open Planazo App</a>
+</header>
+{% block breadcrumb %}{% endblock %}
+<main>
+{% block content %}{% endblock %}
+</main>
+<footer class="site-footer">
+  <p>&copy; {{ year }} Planazo — Event, Wedding &amp; Vendor Marketplace. <a href="{{ site_url }}">planazo.in</a></p>
+</footer>
+</body>
+</html>

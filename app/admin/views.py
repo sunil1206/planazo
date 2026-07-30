@@ -136,8 +136,11 @@ class BirthdayPageAdmin(ModelView, model=BirthdayPage):
 
 class VendorCategoryAdmin(ModelView, model=VendorCategory):
     column_list = [VendorCategory.id, VendorCategory.key, VendorCategory.name,
-                   VendorCategory.is_active, VendorCategory.order]
+                   VendorCategory.url_slug, VendorCategory.is_active, VendorCategory.order]
     column_sortable_list = [VendorCategory.order]
+    form_columns = [VendorCategory.key, VendorCategory.name, VendorCategory.url_slug,
+                    VendorCategory.icon_image, VendorCategory.description,
+                    VendorCategory.order, VendorCategory.is_active]
 
 
 class VendorWebsiteAdmin(ModelView, model=VendorWebsite):

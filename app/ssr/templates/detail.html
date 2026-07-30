@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block breadcrumb %}
+<nav class="breadcrumb" aria-label="breadcrumb">
+  <a href="{{ site_url }}">Home</a> &rsaquo;
+  <a href="/vendors/{{ category.url_slug }}">{{ category.name }}</a> &rsaquo;
+  <a href="/vendors/{{ category.url_slug }}/{{ city_slug }}">{{ vendor.city }}</a> &rsaquo;
+  <span aria-current="page">{{ vendor.title }}</span>
+</nav>
+{% endblock %}
+{% block content %}
+{% if vendor.cover_image_url %}<img src="{{ vendor.cover_image_url }}" alt="{{ vendor.title }} cover photo" loading="lazy" style="width:100%;max-height:320px;object-fit:cover;margin-bottom:16px;">{% endif %}
+
+<h1>{{ vendor.title }}</h1>
+<p class="subtitle">{{ category.name }}{% if vendor.city %} in {{ vendor.city }}{% endif %}</p>
+
+{% if vendor.is_verified %}<span class="badge">&#10003; Verified on Planazo</span>{% endif %}
+{% if rating %}<p class="stars" style="margin-top:8px;">&#9733; {{ rating.average }} <span style="color:rgba(255,255,255,0.4);">({{ rating.count }} review{{ 's' if rating.count != 1 else '' }})</span></p>{% endif %}
+
+<h2>About {{ vendor.title }}</h2>
+<p>{{ vendor.bio or vendor.tagline or "No description provided yet." }}</p>
+
+{% if packages %}
+<h2>Packages</h2>
+<div class="grid">
+  {% for p in packages %}
+  <div class="card">
+    <h3 style="margin:0 0 6px;font-size:15px;color:#fff;">{{ p.name }}</h3>
+    <p style="font-size:20px;font-weight:800;color:#fff;margin:0 0 6px;">&#8377;{{ "%.0f"|format(p.price) }}</p>
+    {% if p.description %}<p style="color:rgba(255,255,255,0.55);font-size:13px;">{{ p.description }}</p>{% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if portfolio %}
+<h2>Portfolio</h2>
+<div class="portfolio-grid">
+  {% for img in portfolio %}
+  <img src="{{ img.url }}" alt="{{ img.title or (vendor.title ~ ' portfolio photo') }}" loading="lazy">
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if reviews %}
+<h2>Customer Reviews</h2>
+{% for r in reviews %}
+<div class="review">
+  <p class="stars">{{ ('&#9733;' * r.rating) | safe }}</p>
+  <p style="margin:4px 0 0;color:rgba(255,255,255,0.75);">{{ r.comment }}</p>
+</div>
+{% endfor %}
+{% endif %}
+
+<h2>Contact {{ vendor.title }}</h2>
+<p>
+  {% if vendor.phone %}<a class="cta" href="tel:{{ vendor.phone }}">Call {{ vendor.phone }}</a>{% endif %}
+  {% if vendor.email %}<a class="cta secondary" href="mailto:{{ vendor.email }}">Email Vendor</a>{% endif %}
+</p>
+{% if vendor.address %}<p style="color:rgba(255,255,255,0.55);">{{ vendor.address }}</p>{% endif %}
+
+{% if related_vendors %}
+<h2>Other {{ category.name }} in {{ vendor.city }}</h2>
+<div class="tag-list">
+  {% for rv in related_vendors %}
+  <a href="{{ rv.detail_url }}">{{ rv.title }}</a>
+  {% endfor %}
+</div>
+{% endif %}
+
+<p style="margin-top:32px;">
+  <a class="cta" href="{{ site_url }}/login?role=user">Book on Planazo</a>
+</p>
+{% endblock %}

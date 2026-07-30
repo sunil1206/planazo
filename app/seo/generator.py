@@ -164,7 +164,10 @@ def local_business_schema(
     address: Optional[str] = None,
     rating: Optional[float] = None,
     review_count: Optional[int] = None,
+    reviews: Optional[List[Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
+    """reviews: [{"author": str, "rating": int, "comment": str, "date": iso-str}, ...]
+    — only ever pass real, admin-approved reviews here. Never fabricated."""
     schema: Dict[str, Any] = {
         "@context": "https://schema.org",
         "@type": "LocalBusiness",
@@ -188,6 +191,32 @@ def local_business_schema(
             "ratingValue": rating,
             "reviewCount": review_count,
         }
+    if reviews:
+        schema["review"] = [
+            {
+                "@type": "Review",
+                "author": {"@type": "Person", "name": r["author"]},
+                "reviewRating": {"@type": "Rating", "ratingValue": r["rating"], "bestRating": 5},
+                "reviewBody": r["comment"],
+                **({"datePublished": r["date"]} if r.get("date") else {}),
+            }
+            for r in reviews
+        ]
+    return schema
+
+
+def item_list_schema(items: List[Dict[str, str]], *, name: Optional[str] = None) -> Dict[str, Any]:
+    """items: [{"name": str, "url": str}, ...] — for a vendor listing page."""
+    schema: Dict[str, Any] = {
+        "@context": "https://schema.org",
+        "@type": "ItemList",
+        "itemListElement": [
+            {"@type": "ListItem", "position": i + 1, "name": it["name"], "url": it["url"]}
+            for i, it in enumerate(items)
+        ],
+    }
+    if name:
+        schema["name"] = name
     return schema
 
 
@@ -336,22 +365,44 @@ async def build_birthday_meta(db: AsyncSession, page) -> SeoMetaOut:
 async def build_vendor_meta(db: AsyncSession, vendor) -> SeoMetaOut:
     """vendor: app.models.vendor.VendorWebsite.
 
-    Not wired into a router yet — no public vendor-profile frontend page
-    exists (see SEO_ROADMAP.md). Ready to call as soon as one does; the
-    canonical path scheme (/vendor/{slug}) is reserved so overrides created
-    now would carry forward.
+    Wired into app/ssr/router.py's vendor detail page — the real,
+    server-rendered landing page at /vendors/{category-slug}/{city-slug}/{slug}
+    (see SEO_ROADMAP.md). category_obj / reviews are queried explicitly here
+    rather than relying on the caller's eager-loading, same reasoning as
+    build_wedding_meta's BrideGroomEvent query above.
     """
-    path = f"/vendor/{vendor.slug}"
+    from app.models.vendor import VendorCategory, VendorReview
+    from app.seo.slugs import slugify
+
+    category_row = None
+    if vendor.category:
+        cat_result = await db.execute(select(VendorCategory).where(VendorCategory.key == vendor.category))
+        category_row = cat_result.scalar_one_or_none()
+    category_name = category_row.name if category_row else (vendor.category or "").replace("_", " ").title()
+    category_url_slug = (category_row.url_slug if category_row and category_row.url_slug
+                          else slugify(vendor.category or "vendors"))
+    city_slug = slugify(vendor.city or "")
+
+    path = f"/vendors/{category_url_slug}/{city_slug or 'location-tbd'}/{vendor.slug}"
     url = _abs_url(path)
 
-    category = (vendor.category or "").replace("_", " ").title()
     location_bit = f" in {vendor.city}" if vendor.city else ""
-    title = f"{vendor.title} — {category}{location_bit} | {SITE_NAME}" if category else f"{vendor.title} | {SITE_NAME}"
+    title = f"{vendor.title} — {category_name}{location_bit} | {SITE_NAME}" if category_name else f"{vendor.title} | {SITE_NAME}"
     description = _truncate(
-        vendor.tagline or vendor.bio or f"{vendor.title} — book verified {category or 'vendors'}{location_bit} on Planazo.",
+        vendor.tagline or vendor.bio or f"{vendor.title} — book verified {category_name or 'vendors'}{location_bit} on Planazo.",
         160,
     )
     image = _abs_media(vendor.cover_image) or _abs_media(vendor.thumbnail) or _abs_url(DEFAULT_OG_IMAGE)
+
+    reviews_result = await db.execute(
+        select(VendorReview)
+        .where(VendorReview.vendor_id == vendor.id, VendorReview.is_approved.is_(True))
+        .order_by(VendorReview.created_at.desc())
+        .limit(20)
+    )
+    approved_reviews = reviews_result.scalars().all()
+    rating = round(sum(r.rating for r in approved_reviews) / len(approved_reviews), 1) if approved_reviews else None
+    review_count = len(approved_reviews) if approved_reviews else None
 
     json_ld = [
         local_business_schema(
@@ -362,8 +413,20 @@ async def build_vendor_meta(db: AsyncSession, vendor) -> SeoMetaOut:
             phone=vendor.phone or None,
             city=vendor.city or None,
             address=vendor.address or None,
+            rating=rating,
+            review_count=review_count,
+            reviews=[
+                {"author": "Verified Planazo customer", "rating": r.rating, "comment": r.comment,
+                 "date": r.created_at.isoformat() if r.created_at else None}
+                for r in approved_reviews[:10]
+            ] or None,
         ),
-        breadcrumb_schema([{"name": "Home", "path": "/"}, {"name": vendor.title, "path": path}]),
+        breadcrumb_schema([
+            {"name": "Home", "path": "/"},
+            {"name": category_name, "path": f"/vendors/{category_url_slug}"},
+            {"name": vendor.city or "Location", "path": f"/vendors/{category_url_slug}/{city_slug}"},
+            {"name": vendor.title, "path": path},
+        ]),
     ]
 
     resolved = SeoMetaOut(

@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block breadcrumb %}
+<nav class="breadcrumb" aria-label="breadcrumb">
+  <a href="{{ site_url }}">Home</a> &rsaquo;
+  <span aria-current="page">{{ category.name }}</span>
+</nav>
+{% endblock %}
+{% block content %}
+<h1>{{ category.name }} — Find Verified Vendors on Planazo</h1>
+<p class="subtitle">{{ category.description or ("Browse verified " ~ category.name.lower() ~ " by city.") }}</p>
+
+{% if cities %}
+<h2>Choose a City</h2>
+<div class="tag-list">
+  {% for c in cities %}
+  <a href="/vendors/{{ category.url_slug }}/{{ c.slug }}">{{ category.name }} in {{ c.name }}</a>
+  {% endfor %}
+</div>
+{% else %}
+<p class="subtitle">No verified vendors in this category yet.</p>
+{% endif %}
+
+<p style="margin-top:32px;">
+  <a class="cta" href="{{ site_url }}/login?role=vendor">List Your Business on Planazo</a>
+</p>
+{% endblock %}

@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block breadcrumb %}
+<nav class="breadcrumb" aria-label="breadcrumb">
+  <a href="{{ site_url }}">Home</a> &rsaquo;
+  <a href="/vendors/{{ category.url_slug }}">{{ category.name }}</a> &rsaquo;
+  <span aria-current="page">{{ city }}</span>
+</nav>
+{% endblock %}
+{% block content %}
+<h1>{{ category.name }} in {{ city }}</h1>
+<p class="subtitle">
+  {{ vendors|length }} verified {{ category.name.lower() }}{{ 's' if vendors|length != 1 and not category.name.lower().endswith('s') else '' }}
+  in {{ city }}, listed on Planazo.
+</p>
+
+{% if vendors %}
+<section aria-label="Vendor listings" class="grid">
+  {% for v in vendors %}
+  <article class="card">
+    {% if v.thumbnail_url %}<img src="{{ v.thumbnail_url }}" alt="{{ v.title }} — {{ category.name }} in {{ city }}" loading="lazy">{% endif %}
+    <h2 style="margin:12px 0 4px;font-size:17px;"><a href="{{ v.detail_url }}">{{ v.title }}</a></h2>
+    {% if v.tagline %}<p style="color:rgba(255,255,255,0.55);font-size:14px;margin:0 0 8px;">{{ v.tagline }}</p>{% endif %}
+    {% if v.rating %}<p class="stars">&#9733; {{ v.rating }} <span style="color:rgba(255,255,255,0.4);">({{ v.review_count }} review{{ 's' if v.review_count != 1 else '' }})</span></p>{% endif %}
+    {% if v.is_verified %}<span class="badge">&#10003; Verified on Planazo</span>{% endif %}
+    <p><a class="cta" href="{{ v.detail_url }}" style="padding:7px 16px;font-size:13px;">View Profile</a></p>
+  </article>
+  {% endfor %}
+</section>
+{% else %}
+<p class="subtitle">No verified {{ category.name.lower() }} in {{ city }} yet — check nearby cities below, or browse other categories.</p>
+{% endif %}
+
+{% if related_cities %}
+<h2>{{ category.name }} in Other Cities</h2>
+<div class="tag-list">
+  {% for c in related_cities %}
+  <a href="/vendors/{{ category.url_slug }}/{{ c.slug }}">{{ category.name }} in {{ c.name }}</a>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if related_categories %}
+<h2>Other Categories in {{ city }}</h2>
+<div class="tag-list">
+  {% for c in related_categories %}
+  <a href="/vendors/{{ c.url_slug }}/{{ city_slug }}">{{ c.name }} in {{ city }}</a>
+  {% endfor %}
+</div>
+{% endif %}
+
+<h2>Frequently Asked Questions</h2>
+{% for faq in faqs %}
+<details class="faq">
+  <summary>{{ faq.question }}</summary>
+  <p>{{ faq.answer }}</p>
+</details>
+{% endfor %}
+
+<p style="margin-top:32px;">
+  <a class="cta" href="{{ site_url }}/login?role=user">Plan Your Event on Planazo</a>
+  <a class="cta secondary" href="{{ site_url }}/login?role=vendor">List Your Business</a>
+</p>
+{% endblock %}

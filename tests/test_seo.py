@@ -106,6 +106,40 @@ async def test_sitemap_includes_only_published(db_session, make_user, make_weddi
     assert any(bday.slug in loc for loc in locs)
 
 
+async def test_sitemap_includes_vendor_pages_with_at_least_one_vendor(db_session):
+    from app.models.vendor import VendorCategory, VendorWebsite
+    from app.models.user import User
+
+    cat = VendorCategory(key="caterer", name="Caterers", url_slug="caterers", is_active=True)
+    db_session.add(cat)
+    await db_session.flush()
+    owner = User(email="cat-owner@test.com", password="!", full_name="Cat Owner", role="VENDOR", is_active=True)
+    db_session.add(owner)
+    await db_session.flush()
+    vendor = VendorWebsite(
+        account_id=owner.id, category="caterer", city="Goa", title="Best Caterers",
+        slug="best-caterers", is_active=True, is_verified=True,
+    )
+    db_session.add(vendor)
+    await db_session.commit()
+
+    urls = await collect_sitemap_urls(db_session)
+    locs = [u.loc for u in urls]
+    assert any("/vendors/caterers" == u.loc.rsplit("planazo.in", 1)[-1] or u.loc.endswith("/vendors/caterers") for u in urls)
+    assert any(u.loc.endswith("/vendors/caterers/goa") for u in urls)
+    assert any(u.loc.endswith("/vendors/caterers/goa/best-caterers") for u in urls)
+
+
+async def test_sitemap_excludes_categories_with_no_vendors(db_session):
+    from app.models.vendor import VendorCategory
+
+    db_session.add(VendorCategory(key="empty_cat", name="Empty Category", url_slug="empty-category", is_active=True))
+    await db_session.commit()
+
+    urls = await collect_sitemap_urls(db_session)
+    assert not any("empty-category" in u.loc for u in urls)
+
+
 async def test_sitemap_xml_is_well_formed(db_session, make_user, make_wedding):
     owner = await make_user(email="s2@test.com")
     w = await make_wedding(owner, couple="XML Test")

@@ -32,7 +32,24 @@ frontend/src/lib/seoAnalysis.js            — same analysis rules as analysis.p
                                               reimplemented in JS so the panel above
                                               gets instant feedback with no network
                                               round-trip per keystroke
+
+app/ssr/
+  router.py     — GET /vendors/{category}[/{city}[/{slug}]] — real
+                  server-rendered HTML (not the SPA)
+  queries.py    — DB access for the pages above
+  templates/    — Jinja2 templates (base, category_index, listing, detail)
 ```
+
+**Why `app/ssr/` exists at all:** `frontend/` is a Vite + React SPA — every
+route is client-rendered. Crawlers that don't execute JavaScript (Bing,
+GPTBot, PerplexityBot, ClaudeBot, and others) never see a client-rendered
+page's real content, only the empty shell in `index.html`. Migrating the
+whole frontend to a framework with SSR/SSG (Next.js, etc.) would fix this
+properly but is a large separate rewrite; `app/ssr/` is the pragmatic
+middle path — real, crawler-visible HTML for the pages that most need to
+rank (vendor listings/profiles), built directly from Postgres with FastAPI +
+Jinja2, sitting alongside the SPA rather than replacing it. See "Vendor SEO
+landing pages" below for exactly what it covers.
 
 Design choice worth calling out: `SeoMetaOverride` is keyed by URL **path**
 (e.g. `/invite/priya-arjun`), not by a foreign key to a specific table. This
@@ -55,9 +72,10 @@ schema change.
   now at `/admin` (SQLAdmin) with zero frontend work, or via
   `/api/seo/admin/overrides` once a dedicated dashboard page exists.
 - **`/sitemap.xml`** — dynamically built from published `CoupleWebsite` and
-  `BirthdayPage` rows. Deliberately does **not** include vendor or product
-  pages yet (see below) — a sitemap entry that 404s is worse than not
-  listing it.
+  `BirthdayPage` rows, plus every vendor category/listing/detail page from
+  `app/ssr/` that has at least one real verified vendor behind it (an empty
+  "0 results" page isn't worth indexing even though it still renders a real
+  200). Product pages still aren't included — no page renders them yet.
 - **`/robots.txt`** — admin-configurable via `SeoRobotsRule`; falls back to
   sensible hardcoded defaults (block `/api/`, `/admin`, `/dashboard`, etc.)
   if the table is empty, so it's never accidentally wide open or fully
@@ -91,25 +109,53 @@ schema change.
   router itself) to consult this table on every navigation, not just these
   two detail routes.
 
-### What's built but not wired in yet
+### Vendor SEO landing pages (`app/ssr/`)
 
-`build_vendor_meta()` and `build_product_meta()` in `app/seo/generator.py`
-are fully implemented (LocalBusiness / Product JSON-LD, title/description
-generation from real vendor & product fields) but not called from any
-router — **because there is no public vendor-profile or product-detail page
-in the frontend yet** (`VendorWebsite` and `GiftProduct` both have working
-public backend endpoints — `GET /api/vendors/{slug}/`,
-`GET /api/gifts/products/{slug}/` — but nothing in `frontend/src/pages`
-renders them). Wiring these in is a two-line change per router once those
-pages exist, following the exact pattern already used in
-`app/routers/invitations.py` / `app/routers/birthday.py`.
+`build_vendor_meta()` is now wired in — but into a *new* server-rendered
+page (`app/ssr/router.py`), not the SPA, for the crawler-visibility reason
+explained above. URL structure:
+
+```
+/vendors/{category-slug}                          e.g. /vendors/wedding-planners
+/vendors/{category-slug}/{city-slug}               e.g. /vendors/wedding-planners/paris
+/vendors/{category-slug}/{city-slug}/{vendor-slug} e.g. /vendors/wedding-planners/paris/dream-events
+```
+
+(Namespaced under `/vendors/` rather than a bare-root pattern so nginx can
+route these three shapes to FastAPI deterministically, with zero risk of
+colliding with the SPA's own top-level routes — `/weddings`, `/birthdays`,
+`/invite/:slug`, etc.)
+
+What each page has, all from real data (nothing fabricated):
+- **Category index** — every city with at least one verified vendor in that
+  category, linked.
+- **Listing page** — real verified vendor cards (name, tagline, real
+  aggregate rating from approved `VendorReview` rows, verified badge),
+  `ItemList` + `BreadcrumbList` + `FAQPage` JSON-LD, related-cities and
+  related-categories internal links (only ones with real vendors behind
+  them), a small honest FAQ section.
+- **Vendor detail page** — bio, real packages/pricing, real portfolio
+  images, real approved reviews, `LocalBusiness` JSON-LD with
+  `aggregateRating` and embedded `review` array, direct `tel:`/`mailto:`
+  contact links (no JS-dependent enquiry form — the SPA doesn't have one
+  either yet), related-vendors-in-same-city links.
+- Only `is_active` + `is_verified` vendors with both a category and a city
+  filled in get a page — an incomplete profile doesn't get indexed yet.
+
+`VendorCategory` gained a `url_slug` column (migration `0005`, backfilled
+from `key` automatically) to back the pretty category URL segment.
+
+`build_product_meta()` (for `GiftProduct`) is still unwired — no
+server-rendered or SPA page exists for individual gift products yet. Same
+two-line pattern once one does.
 
 ### Explicitly out of scope for "SEO plugin," in scope for actual page-building
 
-Building the vendor-profile and product-detail frontend pages themselves is
-frontend feature work, not an SEO task — but it's the actual blocker for
-Planazo's vendor marketplace being indexable at all. Worth prioritizing
-independent of anything else in this document.
+An interactive JS enquiry/contact form, favoriting, and review submission
+directly from the vendor SEO page (rather than plain `tel:`/`mailto:`
+links) would need either a bit of vanilla JS on these pages or a link into
+the SPA once it has its own vendor-profile view — frontend feature work,
+not an SEO task. Worth prioritizing independent of anything else here.
 
 ## Part 2 — What a full Semrush/Ahrefs-style system needs (and why it's phased separately)
 

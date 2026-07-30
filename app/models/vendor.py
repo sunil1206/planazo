@@ -17,6 +17,10 @@ class VendorCategory(Base):
     description = Column(Text, default="")
     order       = Column(Integer, default=0)
     is_active   = Column(Boolean, default=True)
+    # SEO-friendly URL segment for the server-rendered vendor landing pages
+    # (see app/ssr/), e.g. "wedding-planners" for key="wedding_planner".
+    # Backfilled from `key` in migration 0005; editable via /admin.
+    url_slug    = Column(String(50), unique=True, nullable=True)
 
     vendors = relationship("VendorWebsite", back_populates="category_obj")
 

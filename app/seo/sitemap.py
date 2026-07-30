@@ -1,12 +1,17 @@
 """SEO module — sitemap.xml generation.
 
-Only includes page types that currently have BOTH a real slug and a live
-public frontend route: CoupleWebsite (/invite/:slug) and BirthdayPage
-(/birthday/:slug). Vendor and product pages are deliberately left out for
-now — there's no frontend page to render them yet (see SEO_ROADMAP.md), and
-listing a URL in a sitemap that 404s is worse for SEO than not listing it at
-all. Adding a source is a ~5-line addition to SITEMAP_SOURCES once its
-frontend page exists.
+Wedding/birthday pages: CoupleWebsite (/invite/:slug) and BirthdayPage
+(/birthday/:slug) — the SPA's own live public routes.
+
+Vendor pages: category index, category+city listing, and vendor detail
+pages — the real server-rendered pages in app/ssr/. Product pages are still
+left out; no frontend/SSR page renders them yet (see SEO_ROADMAP.md), and
+listing a URL that 404s is worse for SEO than not listing it at all.
+
+Listing pages are only included where at least one verified vendor actually
+exists for that category+city combination — an empty "0 results" page isn't
+worth indexing (thin content), even though the page itself still renders a
+200 for a direct visit.
 """
 from __future__ import annotations
 from datetime import datetime, timezone
@@ -19,6 +24,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.models.invitation import CoupleWebsite
 from app.models.birthday import BirthdayPage
+from app.seo.slugs import slugify
+from app.ssr import queries as vendor_queries
 
 
 class SitemapUrl(NamedTuple):
@@ -60,6 +67,30 @@ async def collect_sitemap_urls(db: AsyncSession) -> List[SitemapUrl]:
     )
     for slug, updated_at, created_at in birthdays.all():
         urls.append(SitemapUrl(_abs(f"/birthday/{slug}"), _date(updated_at or created_at), "weekly", "0.8", "birthday"))
+
+    # ── Vendor SEO landing pages (app/ssr/) ────────────────────────────────
+    categories = await vendor_queries.get_all_active_categories(db)
+    for cat in categories:
+        if not cat.url_slug:
+            continue
+        vendors = await vendor_queries.list_vendors_for_category(db, cat.key)
+        if not vendors:
+            continue
+        urls.append(SitemapUrl(_abs(f"/vendors/{cat.url_slug}"), _date(None), "weekly", "0.6", "vendor-category"))
+
+        cities_seen: dict[str, list] = {}
+        for v in vendors:
+            cities_seen.setdefault(slugify(v.city), []).append(v)
+
+        for city_slug, city_vendors in cities_seen.items():
+            urls.append(SitemapUrl(
+                _abs(f"/vendors/{cat.url_slug}/{city_slug}"), _date(None), "weekly", "0.7", "vendor-listing",
+            ))
+            for v in city_vendors:
+                urls.append(SitemapUrl(
+                    _abs(f"/vendors/{cat.url_slug}/{city_slug}/{v.slug}"),
+                    _date(v.created_at), "monthly", "0.6", "vendor-detail",
+                ))
 
     return urls
 
