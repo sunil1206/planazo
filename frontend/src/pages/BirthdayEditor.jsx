@@ -863,6 +863,7 @@ export default function BirthdayEditor() {
   const { id: slug } = useParams()
   const navigate = useNavigate()
   const [inv, setInv]         = useState(null)
+  const [loadError, setLoadError] = useState(null)
   const [activeTab, setTab]   = useState('general')
   const [saved, setSaved]     = useState(false)
   const [saving, setSaving]   = useState(false)
@@ -917,7 +918,11 @@ export default function BirthdayEditor() {
           wishCount: wishes.length,
         })
       } catch (e) {
-        navigate('/birthdays')
+        if (cancelled) return
+        console.error('Failed to load birthday page for editing:', e)
+        setLoadError(e?.response?.status === 404
+          ? "This page doesn't exist or was deleted."
+          : (e?.response?.data?.detail || e?.message || 'Something went wrong loading this page.'))
       }
     }
     load()
@@ -1031,6 +1036,27 @@ export default function BirthdayEditor() {
 
   const handlePublish   = async () => { const u = await birthdayApi.publish(slug).catch(() => null);   if (u) { setInv(prev => ({ ...prev, status: 'live' })); setPreviewVer(v => v + 1) } }
   const handleUnpublish = async () => { const u = await birthdayApi.unpublish(slug).catch(() => null); if (u) { setInv(prev => ({ ...prev, status: 'draft' })); setPreviewVer(v => v + 1) } }
+
+  if (loadError) {
+    return (
+      <div className="min-h-screen bg-[#060412] text-white flex flex-col items-center justify-center gap-4 px-6 text-center">
+        <div className="w-12 h-12 rounded-full flex items-center justify-center"
+          style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.22)' }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+        </div>
+        <p className="text-white/70 text-[14px] max-w-sm">{loadError}</p>
+        <button
+          onClick={() => navigate('/birthdays')}
+          className="px-6 py-2.5 rounded-full text-[13px] font-semibold text-white transition-all duration-200 hover:-translate-y-px"
+          style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}
+        >
+          Back to Birthdays
+        </button>
+      </div>
+    )
+  }
 
   if (!inv) {
     return (
