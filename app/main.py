@@ -71,11 +71,25 @@ if settings.SENTRY_DSN:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Create all tables on first boot (idempotent — skips existing tables)
+    # Base.metadata.create_all() only in DEBUG (local dev convenience for a
+    # fresh empty DB with no migration history to worry about).
+    #
+    # It must NOT run in production: create_all() creates any table that's
+    # currently missing from the DB, using whatever the *current* code's
+    # models look like — with zero awareness of Alembic's migration history.
+    # Every time a new model/table was added in this codebase, this line ran
+    # on container startup (before `alembic upgrade head` got a chance to)
+    # and silently created that table itself. Alembic then tried to create
+    # the same table again and failed with DuplicateTableError, aborting the
+    # whole `upgrade head` run — which is exactly what happened deploying
+    # migration 0004 (seo_redirects) here. Alembic is the only thing that
+    # should ever create or alter tables in production; see
+    # app/alembic/versions/ and `alembic upgrade head` in deploy.yml.
     import app.models  # noqa: F401 — register all models onto Base.metadata
-    from app.database.base import Base
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    if settings.DEBUG:
+        from app.database.base import Base
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
 
     # Startup checks
     import redis.asyncio as aioredis
