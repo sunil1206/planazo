@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
+import { PlanningEventProvider } from './context/PlanningEventContext'
 import ProtectedRoute   from './components/ProtectedRoute'
 import Landing          from './pages/Landing'
 import RoleSelect       from './pages/RoleSelect'
@@ -15,7 +16,31 @@ import BirthdayEditor   from './pages/BirthdayEditor'
 import BirthdaySite     from './pages/BirthdaySite'
 import CustomEvents         from './pages/CustomEvents'
 import CustomEventDashboard from './pages/CustomEventDashboard'
-import PlanningSuite        from './pages/PlanningSuite'
+import PlanningOverview     from './pages/planning/PlanningOverview'
+import PlanningChecklist    from './pages/planning/PlanningChecklist'
+import PlanningBudget       from './pages/planning/PlanningBudget'
+import PlanningGuests       from './pages/planning/PlanningGuests'
+import PlanningVendors      from './pages/planning/PlanningVendors'
+import PlanningFindVendors  from './pages/planning/PlanningFindVendors'
+
+// PlanningEventProvider wraps all /planning/* routes as a sibling layer
+// (not per-page like before) so the selected event survives navigating
+// between Checklist/Budget/Guests/Vendors instead of resetting on every
+// route change — one <Routes> element per module, all sharing one context.
+function PlanningRoutes() {
+  return (
+    <PlanningEventProvider>
+      <Routes>
+        <Route path="/"             element={<PlanningOverview />} />
+        <Route path="/checklist"    element={<PlanningChecklist />} />
+        <Route path="/budget"       element={<PlanningBudget />} />
+        <Route path="/guests"       element={<PlanningGuests />} />
+        <Route path="/vendors"      element={<PlanningVendors />} />
+        <Route path="/find-vendors" element={<PlanningFindVendors />} />
+      </Routes>
+    </PlanningEventProvider>
+  )
+}
 
 function App() {
   return (
@@ -39,7 +64,7 @@ function App() {
           <Route path="/birthdays/editor/:id" element={<ProtectedRoute><BirthdayEditor /></ProtectedRoute>} />
           <Route path="/custom-events"        element={<ProtectedRoute><CustomEvents /></ProtectedRoute>} />
           <Route path="/custom-events/:id"    element={<ProtectedRoute><CustomEventDashboard /></ProtectedRoute>} />
-          <Route path="/planning"             element={<ProtectedRoute><PlanningSuite /></ProtectedRoute>} />
+          <Route path="/planning/*"           element={<ProtectedRoute><PlanningRoutes /></ProtectedRoute>} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>
