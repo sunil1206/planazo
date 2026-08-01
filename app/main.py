@@ -85,6 +85,14 @@ async def lifespan(app: FastAPI):
     # migration 0004 (seo_redirects) here. Alembic is the only thing that
     # should ever create or alter tables in production; see
     # app/alembic/versions/ and `alembic upgrade head` in deploy.yml.
+    #
+    # The flip side: local dev's .env MUST set DEBUG=True (it does by
+    # default — see .env / .env.example), because the base schema (users,
+    # couple_websites, etc.) has never had a real Alembic migration of its
+    # own — only incremental changes on top of it are tracked, starting
+    # from migration 0001. DEBUG=False with a fresh local Postgres means
+    # those tables are never created at all, and every query — including
+    # login — fails with "relation ... does not exist".
     import app.models  # noqa: F401 — register all models onto Base.metadata
     if settings.DEBUG:
         from app.database.base import Base
