@@ -84,6 +84,22 @@ const SITE_THEMES = {
     photoFilter: 'saturate(0.8) sepia(0.3) contrast(1.05) brightness(0.78)',
     heroGradient: 'rgba(251,191,36,0.05)',
   },
+  // The one light-canvas theme in the set — an ivory Kasavu palette instead
+  // of the dark-canvas-with-light-accent treatment every other theme uses.
+  // textPrimary/textSecondary are dark warm-brown tints (not light tints
+  // like the other themes) since they sit on an ivory bg, not a near-black
+  // one; the rest of the site (Section reveal, GoldDivider, box-shadows,
+  // photo vignettes) is already fully parameterized through these fields
+  // and reads correctly against a light bg without further changes.
+  kerala_light: {
+    bg: '#fdf8ec', accent: '#b45309', accentLight: '#78350f',
+    accentDim: 'rgba(180,83,9,0.50)', accentFaint: 'rgba(180,83,9,0.07)',
+    border: 'rgba(180,83,9,0.22)', starColor: '#c9922a',
+    textPrimary: '#3b2712', textSecondary: 'rgba(59,39,18,0.62)',
+    tagline: 'An Ivory Beginning', ambientGlow: 'rgba(212,175,55,0.06)',
+    photoFilter: 'saturate(1.08) contrast(1.03) brightness(1.04)',
+    heroGradient: 'rgba(212,175,55,0.10)',
+  },
   modern_minimal: {
     bg: '#080810', accent: '#a78bfa', accentLight: '#ede9fe',
     accentDim: 'rgba(167,139,250,0.50)', accentFaint: 'rgba(167,139,250,0.08)',
@@ -447,7 +463,7 @@ function GuestPicker({ value, onChange, th }) {
     <div ref={ref} className="relative">
       <button type="button" onClick={() => setOpen(o => !o)}
         className="w-full px-4 py-3 rounded-xl text-[14px] text-left flex items-center justify-between transition-all duration-200"
-        style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${open ? th.accent : th.border}`, color: '#f0e6d3', fontFamily: 'system-ui, sans-serif', boxShadow: open ? `0 0 0 3px ${th.accentFaint}` : 'none', outline: 'none' }}>
+        style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${open ? th.accent : th.border}`, color: th.textPrimary, fontFamily: 'system-ui, sans-serif', boxShadow: open ? `0 0 0 3px ${th.accentFaint}` : 'none', outline: 'none' }}>
         <span>{label(Number(value))}</span>
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
           style={{ color: th.accentDim, transition: 'transform 0.2s', transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}>
@@ -610,7 +626,7 @@ function SelfieMatchSection({ photos, th }) {
         <div className="flex items-center gap-3 mb-4">
           <div className="w-11 h-11 rounded-full flex items-center justify-center text-xl shrink-0" style={{ background: th.accentFaint, border: `1.5px solid ${th.border}` }}>🤳</div>
           <div>
-            <h3 className="text-[15px] font-bold text-white leading-tight">AI Selfie Match</h3>
+            <h3 className="text-[15px] font-bold leading-tight" style={{ color: th.textPrimary }}>AI Selfie Match</h3>
             <p className="text-[12px]" style={{ color: th.textSecondary }}>Upload your selfie — we'll find your photos from the event</p>
           </div>
         </div>
@@ -744,7 +760,7 @@ export default function InvitationSite() {
   const wdDate = inv.weddingDate ? new Date(inv.weddingDate) : null
 
   return (
-    <div className="min-h-screen" style={{ background: th.bg, color: '#f0e6d3', fontFamily: "'Georgia', 'Times New Roman', serif" }}>
+    <div className="min-h-screen" style={{ background: th.bg, color: th.textPrimary, fontFamily: "'Georgia', 'Times New Roman', serif" }}>
 
       {/* Skip in preview — the editor iframe shouldn't hijack the parent
           dashboard tab's title/meta tags. */}
@@ -1029,7 +1045,7 @@ export default function InvitationSite() {
                     <input required={f.required} type={f.type} value={rsvp[f.key]} onChange={e => setRsvp(r => ({ ...r, [f.key]: e.target.value }))}
                       placeholder={f.placeholder}
                       className="w-full px-4 py-3 rounded-xl text-[14px] outline-none transition-all duration-200"
-                      style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${th.border}`, color: '#f0e6d3', fontFamily: 'system-ui, sans-serif' }}
+                      style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${th.border}`, color: th.textPrimary, fontFamily: 'system-ui, sans-serif' }}
                       onFocus={e => e.target.style.borderColor = th.accent}
                       onBlur={e => e.target.style.borderColor = th.border}
                     />
@@ -1080,10 +1096,10 @@ export default function InvitationSite() {
               style={{ background: 'rgba(255,255,255,0.025)', border: `1px solid ${th.border}` }}>
               <input value={wishName} onChange={e => setWishName(e.target.value)} placeholder="Your name (optional)"
                 className="w-full px-4 py-2.5 rounded-xl text-[13px] outline-none"
-                style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${th.border}`, color: '#f0e6d3', fontFamily: 'system-ui, sans-serif' }} />
+                style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${th.border}`, color: th.textPrimary, fontFamily: 'system-ui, sans-serif' }} />
               <textarea value={wishMsg} onChange={e => setWishMsg(e.target.value)} placeholder="Write your wishes for the couple…"
                 rows={3} className="w-full px-4 py-2.5 rounded-xl text-[13px] outline-none resize-none"
-                style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${th.border}`, color: '#f0e6d3', fontFamily: 'system-ui, sans-serif' }} />
+                style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${th.border}`, color: th.textPrimary, fontFamily: 'system-ui, sans-serif' }} />
               <button type="submit" className="w-full py-2.5 rounded-xl text-[13px] font-semibold tracking-wider transition-all duration-200 hover:-translate-y-px"
                 style={{ background: th.accentFaint, border: `1px solid ${th.border}`, color: th.accent, fontFamily: 'system-ui, sans-serif' }}>
                 Send Wishes 💌

@@ -3,6 +3,7 @@ import { planningApi, CHECKLIST_PRIORITIES } from '../../lib/planningApi'
 import { getErrorMessage } from '../../lib/api'
 import { usePlanningEvent } from '../../context/usePlanningEvent'
 import { ACCENT, GRADIENT, fmtDate, Spinner, LoadError, EmptyState, InlineFormError, PlanningModulePage } from './shared'
+import Select from '../../components/Select'
 
 const PRIORITY_STYLE = {
   LOW:      { bg: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.5)' },
@@ -83,9 +84,10 @@ function ChecklistContent({ eventType, eventId, onChanged }) {
             onKeyDown={e => e.key === 'Enter' && addItem()} />
           <input className="glass-input" placeholder="Category" value={form.category}
             onChange={e => setForm(f => ({ ...f, category: e.target.value }))} />
-          <select className="glass-input" value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value }))}>
-            {CHECKLIST_PRIORITIES.map(p => <option key={p} value={p}>{p[0] + p.slice(1).toLowerCase()}</option>)}
-          </select>
+          <Select
+            className="w-full" value={form.priority} onChange={v => setForm(f => ({ ...f, priority: v }))}
+            options={CHECKLIST_PRIORITIES.map(p => ({ value: p, label: p[0] + p.slice(1).toLowerCase() }))}
+          />
           <input type="date" className="glass-input" value={form.due_date} onChange={e => setForm(f => ({ ...f, due_date: e.target.value }))} />
         </div>
         <InlineFormError message={formErr} />

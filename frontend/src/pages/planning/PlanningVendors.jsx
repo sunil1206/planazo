@@ -4,6 +4,7 @@ import { planningApi, VENDOR_BOOKING_STATUSES } from '../../lib/planningApi'
 import { getErrorMessage } from '../../lib/api'
 import { usePlanningEvent } from '../../context/usePlanningEvent'
 import { GRADIENT, Spinner, LoadError, EmptyState, InlineFormError, PlanningModulePage } from './shared'
+import Select from '../../components/Select'
 
 function VendorsContent({ eventType, eventId, onChanged, prefill }) {
   const [bookings, setBookings] = useState([])
@@ -89,10 +90,11 @@ function VendorsContent({ eventType, eventId, onChanged, prefill }) {
               <p className="text-white text-[13.5px] font-medium">{b.vendor_name}</p>
               <p className="text-white/30 text-[11px]">{b.category || '—'} · ₹{Number(b.price).toLocaleString('en-IN')} · Remaining ₹{Number(b.remaining).toLocaleString('en-IN')}</p>
             </div>
-            <select className="glass-input py-1 w-auto" value={b.booking_status} onChange={e => updateStatus(b, e.target.value)}
-              aria-label={`Booking status for ${b.vendor_name}`}>
-              {VENDOR_BOOKING_STATUSES.map(s => <option key={s} value={s}>{s[0] + s.slice(1).toLowerCase()}</option>)}
-            </select>
+            <Select
+              compact value={b.booking_status} onChange={v => updateStatus(b, v)}
+              ariaLabel={`Booking status for ${b.vendor_name}`}
+              options={VENDOR_BOOKING_STATUSES.map(s => ({ value: s, label: s[0] + s.slice(1).toLowerCase() }))}
+            />
             <button onClick={() => remove(b.id)} aria-label={`Remove ${b.vendor_name} booking`} className="text-white/25 hover:text-rose-400 transition-colors">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
             </button>

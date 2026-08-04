@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import logo from '../assets/logo.png'
 import { weddingApi, uploadIfLocal, uploadImage, searchVendors } from '../lib/eventsApi'
-import api from '../lib/api'
+import api, { getErrorMessage } from '../lib/api'
 import SeoAnalysisPanel from '../components/SeoAnalysisPanel'
 
 // ── Image compression (client-side preview only; real upload happens on save) ──
@@ -29,6 +29,7 @@ function compressImage(file, maxPx = 800, quality = 0.68) {
 const THEME_PALETTE = {
   royal_mughal:       { bg: 'linear-gradient(135deg,#5c1b0a,#92400e)', accent: '#d97706', emoji: '👑' },
   kerala_traditional: { bg: 'linear-gradient(135deg,#4a0d0d,#92400e)', accent: '#fbbf24', emoji: '🌿' },
+  kerala_light:       { bg: 'linear-gradient(180deg,#fffdf5 0%,#fffdf5 72%,#eab308 82%,#d4af37 100%)', accent: '#b45309', emoji: '🪷' },
   modern_minimal:     { bg: 'linear-gradient(135deg,#1f2937,#4b5563)', accent: '#e5e7eb', emoji: '✨' },
   floral_pastel:      { bg: 'linear-gradient(135deg,#4a0525,#9d174d)', accent: '#fbcfe8', emoji: '🌸' },
   cinematic_dark:     { bg: 'linear-gradient(135deg,#0a0a0a,#16213e)', accent: '#d4af6a', emoji: '🎬' },
@@ -207,18 +208,27 @@ function TimePicker({ value, onChange, placeholder = 'Select time' }) {
 }
 
 // ── Phone Preview ──────────────────────────────────────────────────────────────
-const PREVIEW_SCALE = 210 / 390  // ≈ 0.5385
+// Matches .phone-frame / .phone-screen in index.css. A wedding site is a
+// long scrolling page — squeezing the *whole* thing into the 440px frame
+// (scaling by height too) turns it into an illegible sliver with dead space
+// on both sides. A real phone preview fills the frame's width edge-to-edge
+// and scrolls vertically instead, exactly like an actual phone would; that's
+// what .phone-screen's overflow-y:auto is for. Detailed reading happens via
+// the "Open Full Preview" button below it.
+const FRAME_W = 210
+const SITE_W = 390
+const PREVIEW_SCALE = FRAME_W / SITE_W
 
 function PhonePreview({ id, version }) {
   const [loaded, setLoaded] = useState(false)
-  const [iframeH, setIframeH] = useState(6000)
+  const [iframeH, setIframeH] = useState(900) // sane default before the child reports its real height
 
-  useEffect(() => { setLoaded(false); setIframeH(6000) }, [version])
+  useEffect(() => { setLoaded(false); setIframeH(900) }, [version])
 
   useEffect(() => {
     const handler = (e) => {
       if (e.data?.type === 'planazo_preview_height' && e.data.h > 50) {
-        setIframeH(e.data.h + 80)
+        setIframeH(e.data.h + 40)
       }
     }
     window.addEventListener('message', handler)
@@ -227,23 +237,24 @@ function PhonePreview({ id, version }) {
 
   if (!id) return null
   const wrapperH = Math.round(iframeH * PREVIEW_SCALE)
+
   return (
     <div className="phone-frame">
       <div className="phone-notch" />
       <div className="phone-screen">
-        <div style={{ width: '210px', height: wrapperH + 'px', position: 'relative', overflow: 'hidden', flexShrink: 0 }}>
-          {!loaded && (
-            <div className="absolute inset-0 flex items-center justify-center" style={{ background: '#0a0a0a' }}>
-              <div className="w-5 h-5 rounded-full border border-purple-500/30 border-t-purple-400 animate-spin" />
-            </div>
-          )}
+        {!loaded && (
+          <div className="absolute inset-0 flex items-center justify-center" style={{ background: '#0a0a0a' }}>
+            <div className="w-5 h-5 rounded-full border border-purple-500/30 border-t-purple-400 animate-spin" />
+          </div>
+        )}
+        <div style={{ width: FRAME_W + 'px', height: wrapperH + 'px', position: 'relative', overflow: 'hidden', flexShrink: 0 }}>
           <iframe
             key={version}
             src={`/invite/${id}?preview=1`}
             title="Live Preview"
             onLoad={() => setLoaded(true)}
             style={{
-              width: '390px',
+              width: SITE_W + 'px',
               height: iframeH + 'px',
               border: 'none',
               display: 'block',
@@ -306,7 +317,7 @@ function PersonSection({ prefix, title, emoji, data, onChange }) {
 }
 
 // ── Tab panels ─────────────────────────────────────────────────────────────────
-function TabGeneral({ data, onChange, onNext, isLast }) {
+function TabGeneral({ data, onChange, onNext, isLast, saving }) {
   const coverRef = useRef(null)
   const handleCoverUpload = async (e) => {
     const file = e.target.files?.[0]; if (!file) return
@@ -314,11 +325,12 @@ function TabGeneral({ data, onChange, onNext, isLast }) {
     onChange('coverPhoto', compressed)
   }
   const THEMES = [
-    { id: 'royal_mughal',       emoji: '👑', name: 'Royal Mughal' },
-    { id: 'kerala_traditional', emoji: '🌿', name: 'Kerala Traditional' },
-    { id: 'modern_minimal',     emoji: '✨', name: 'Modern Minimal' },
-    { id: 'floral_pastel',      emoji: '🌸', name: 'Floral Pastel' },
-    { id: 'cinematic_dark',     emoji: '🎬', name: 'Cinematic Dark' },
+    { id: 'royal_mughal',       emoji: '👑', name: 'Royal Mughal',   short: 'Royal' },
+    { id: 'kerala_traditional', emoji: '🌿', name: 'Kerala Traditional', short: 'Kerala' },
+    { id: 'kerala_light',       emoji: '🪷', name: 'Kerala Ivory',   short: 'Ivory' },
+    { id: 'modern_minimal',     emoji: '✨', name: 'Modern Minimal', short: 'Modern' },
+    { id: 'floral_pastel',      emoji: '🌸', name: 'Floral Pastel',  short: 'Floral' },
+    { id: 'cinematic_dark',     emoji: '🎬', name: 'Cinematic Dark', short: 'Cinematic' },
   ]
   return (
     <div className="space-y-5">
@@ -357,33 +369,33 @@ function TabGeneral({ data, onChange, onNext, isLast }) {
       </div>
       <div className="field-group">
         <label className="field-label">Theme</label>
-        <div className="grid grid-cols-5 gap-2 mt-1">
+        <div className="grid grid-cols-6 gap-1.5 mt-1">
           {THEMES.map(t => (
-            <button key={t.id} type="button" onClick={() => onChange('theme', t.id)}
+            <button key={t.id} type="button" onClick={() => onChange('theme', t.id)} title={t.name}
               className={`flex flex-col items-center gap-1.5 py-2.5 rounded-xl border transition-all duration-150
                 ${data.theme === t.id ? 'border-purple-500/50 bg-purple-500/10' : 'border-white/[0.07] bg-white/[0.03] hover:border-white/[0.13]'}`}>
               <span className="text-xl">{t.emoji}</span>
-              <p className="text-[9px] text-white/50 text-center leading-tight">{t.name.split(' ')[0]}</p>
+              <p className={`text-[9px] text-center leading-tight ${data.theme === t.id ? 'text-white/80' : 'text-white/50'}`}>{t.short}</p>
             </button>
           ))}
         </div>
       </div>
-      <SaveBtn onNext={onNext} isLast={isLast} />
+      <SaveBtn onNext={onNext} isLast={isLast} saving={saving} />
     </div>
   )
 }
 
-function TabCouple({ data, onChange, onNext, isLast }) {
+function TabCouple({ data, onChange, onNext, isLast, saving }) {
   return (
     <div className="space-y-4">
       <PersonSection prefix="groom" title="The Groom" emoji="🤵" data={data} onChange={onChange} />
       <PersonSection prefix="bride" title="The Bride"  emoji="👰" data={data} onChange={onChange} />
-      <SaveBtn onNext={onNext} isLast={isLast} />
+      <SaveBtn onNext={onNext} isLast={isLast} saving={saving} />
     </div>
   )
 }
 
-function TabEvents({ data, onChange, onNext, isLast }) {
+function TabEvents({ data, onChange, onNext, isLast, saving }) {
   const events = data.events || []
   const addEvent    = () => onChange('events', [...events, { id: Date.now(), name: '', date: '', time: '', venue: '', address: '', mapLink: '' }])
   const updateEvent = (id, field, val) => onChange('events', events.map(e => e.id === id ? { ...e, [field]: val } : e))
@@ -433,12 +445,12 @@ function TabEvents({ data, onChange, onNext, isLast }) {
         style={{ background: 'rgba(124,58,237,0.07)', border: '1.5px dashed rgba(124,58,237,0.30)' }}>
         + Add Event
       </button>
-      <SaveBtn onNext={onNext} isLast={isLast} />
+      <SaveBtn onNext={onNext} isLast={isLast} saving={saving} />
     </div>
   )
 }
 
-function TabStory({ data, onChange, onNext, isLast }) {
+function TabStory({ data, onChange, onNext, isLast, saving }) {
   const [adding, setAdding] = useState(false)
   const [draft, setDraft]   = useState({ emoji: '✨', title: '', description: '', date: '', photo: null })
   const imgRef = useRef(null)
@@ -589,12 +601,12 @@ function TabStory({ data, onChange, onNext, isLast }) {
         </button>
       )}
 
-      <SaveBtn onNext={onNext} isLast={isLast} />
+      <SaveBtn onNext={onNext} isLast={isLast} saving={saving} />
     </div>
   )
 }
 
-function TabDate({ data, onChange, onNext, isLast }) {
+function TabDate({ data, onChange, onNext, isLast, saving }) {
   const [dateStr, timeStr] = (data.weddingDate || 'T').split('T')
   const handleDate = (d) => onChange('weddingDate', d ? `${d}T${timeStr || '09:00'}` : '')
   const handleTime = (t) => onChange('weddingDate', dateStr ? `${dateStr}T${t}` : '')
@@ -626,13 +638,13 @@ function TabDate({ data, onChange, onNext, isLast }) {
           </p>
         </div>
       )}
-      <SaveBtn onNext={onNext} isLast={isLast} />
+      <SaveBtn onNext={onNext} isLast={isLast} saving={saving} />
     </div>
   )
 }
 
 // ── Vendors tab — real search against the public vendor directory ─────────────
-function TabVendors({ vendors, onAdd, onRemove, onNext, isLast }) {
+function TabVendors({ vendors, onAdd, onRemove, onNext, isLast, saving }) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
   const [searching, setSearching] = useState(false)
@@ -689,13 +701,13 @@ function TabVendors({ vendors, onAdd, onRemove, onNext, isLast }) {
           ))}
         </div>
       )}
-      <SaveBtn onNext={onNext} isLast={isLast} />
+      <SaveBtn onNext={onNext} isLast={isLast} saving={saving} />
     </div>
   )
 }
 
 // ── Gallery tab — real uploads to backend storage ──────────────────────────────
-function TabGallery({ slug, onNext, isLast }) {
+function TabGallery({ slug, onNext, isLast, saving }) {
   const [photos, setPhotos] = useState([])
   const [category, setCategory] = useState('Ceremony')
   const [uploading, setUploading] = useState(false)
@@ -777,12 +789,12 @@ function TabGallery({ slug, onNext, isLast }) {
       ) : (
         <div className="text-center py-8 text-white/25 text-[13px] italic">No photos uploaded yet. Start building your gallery!</div>
       )}
-      <SaveBtn onNext={onNext} isLast={isLast} />
+      <SaveBtn onNext={onNext} isLast={isLast} saving={saving} />
     </div>
   )
 }
 
-function TabPublish({ data, invId, onPublish, onUnpublish, onNext }) {
+function TabPublish({ data, invId, onPublish, onUnpublish, onNext, saving }) {
   const invUrl = `${window.location.origin}/invite/${invId}`
   const [copied, setCopied] = useState(false)
   const copyUrl = () => { navigator.clipboard.writeText(invUrl); setCopied(true); setTimeout(() => setCopied(false), 2000) }
@@ -853,23 +865,28 @@ function TabPublish({ data, invId, onPublish, onUnpublish, onNext }) {
       </div>
 
       {/* Save all changes */}
-      <button onClick={onNext}
-        className="w-full py-2.5 rounded-xl text-[13.5px] font-semibold text-white transition-all duration-200 hover:-translate-y-px active:translate-y-0 flex items-center justify-center gap-2"
+      <button onClick={onNext} disabled={saving}
+        className="w-full py-2.5 rounded-xl text-[13.5px] font-semibold text-white transition-all duration-200 hover:-translate-y-px active:translate-y-0 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
         style={{ background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', boxShadow: '0 4px 16px rgba(124,58,237,0.28)' }}>
-        Save Changes
+        {saving
+          ? <><span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Saving…</>
+          : 'Save Changes'
+        }
       </button>
     </div>
   )
 }
 
-function SaveBtn({ onNext, isLast }) {
+function SaveBtn({ onNext, isLast, saving }) {
   return (
-    <button onClick={onNext}
-      className="w-full py-2.5 rounded-xl text-[13.5px] font-semibold text-white transition-all duration-200 hover:-translate-y-px active:translate-y-0 flex items-center justify-center gap-2"
+    <button onClick={onNext} disabled={saving}
+      className="w-full py-2.5 rounded-xl text-[13.5px] font-semibold text-white transition-all duration-200 hover:-translate-y-px active:translate-y-0 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
       style={{ background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', boxShadow: '0 4px 16px rgba(124,58,237,0.28)' }}>
-      {isLast
-        ? 'Save'
-        : <>Next <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></>
+      {saving
+        ? <><span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Saving…</>
+        : isLast
+          ? 'Save'
+          : <>Next <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></>
       }
     </button>
   )
@@ -884,6 +901,7 @@ export default function InvitationEditor() {
   const [activeTab, setTab] = useState('general')
   const [saved,      setSaved]      = useState(false)
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
   const [previewVer, setPreviewVer] = useState(0)
   const originalIdsRef = useRef({ events: new Set(), stories: new Set() })
 
@@ -1062,6 +1080,7 @@ export default function InvitationEditor() {
   const handleNext = async () => {
     if (!inv || saving) return
     setSaving(true)
+    setSaveError('')
     try {
       await persistCore()
       setPreviewVer(v => v + 1)
@@ -1072,6 +1091,8 @@ export default function InvitationEditor() {
         setSaved(true)
         setTimeout(() => setSaved(false), 2500)
       }
+    } catch (err) {
+      setSaveError(getErrorMessage(err, "Couldn't save your changes — check your connection and try again."))
     } finally {
       setSaving(false)
     }
@@ -1195,14 +1216,23 @@ export default function InvitationEditor() {
 
         {/* Form area */}
         <div className="flex-1 overflow-y-auto p-5 sidebar-scroll pb-20 sm:pb-5">
+          {saveError && (
+            <div className="max-w-xl mb-4 px-4 py-3 rounded-xl text-[13px] text-rose-300 flex items-start gap-2.5"
+              style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.22)' }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 mt-0.5">
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              <span>{saveError}</span>
+            </div>
+          )}
           <div key={activeTab} className="max-w-xl" style={{ animation: 'tab-enter 0.22s cubic-bezier(0.23,1,0.32,1)' }}>
-            {activeTab === 'general' && <TabGeneral  data={inv} onChange={onChange} onNext={handleNext} isLast={false} />}
-            {activeTab === 'couple'  && <TabCouple   data={inv} onChange={onChange} onNext={handleNext} isLast={false} />}
-            {activeTab === 'events'  && <TabEvents   data={inv} onChange={onChange} onNext={handleNext} isLast={false} />}
-            {activeTab === 'story'   && <TabStory    data={inv} onChange={onChange} onNext={handleNext} isLast={false} />}
-            {activeTab === 'date'    && <TabDate     data={inv} onChange={onChange} onNext={handleNext} isLast={false} />}
-            {activeTab === 'gallery' && <TabGallery  slug={slug} onNext={handleNext} isLast={false} />}
-            {activeTab === 'vendors' && <TabVendors  vendors={inv.vendors} onAdd={handleAddVendor} onRemove={handleRemoveVendor} onNext={handleNext} isLast={false} />}
+            {activeTab === 'general' && <TabGeneral  data={inv} onChange={onChange} onNext={handleNext} isLast={false} saving={saving} />}
+            {activeTab === 'couple'  && <TabCouple   data={inv} onChange={onChange} onNext={handleNext} isLast={false} saving={saving} />}
+            {activeTab === 'events'  && <TabEvents   data={inv} onChange={onChange} onNext={handleNext} isLast={false} saving={saving} />}
+            {activeTab === 'story'   && <TabStory    data={inv} onChange={onChange} onNext={handleNext} isLast={false} saving={saving} />}
+            {activeTab === 'date'    && <TabDate     data={inv} onChange={onChange} onNext={handleNext} isLast={false} saving={saving} />}
+            {activeTab === 'gallery' && <TabGallery  slug={slug} onNext={handleNext} isLast={false} saving={saving} />}
+            {activeTab === 'vendors' && <TabVendors  vendors={inv.vendors} onAdd={handleAddVendor} onRemove={handleRemoveVendor} onNext={handleNext} isLast={false} saving={saving} />}
             {activeTab === 'seo' && (
               <SeoAnalysisPanel
                 slug={slug}
@@ -1214,7 +1244,7 @@ export default function InvitationEditor() {
                 save={(body) => weddingApi.updateSeoSettings(slug, body)}
               />
             )}
-            {activeTab === 'publish' && <TabPublish  data={inv} invId={slug} onPublish={handlePublish} onUnpublish={handleUnpublish} onNext={handleNext} />}
+            {activeTab === 'publish' && <TabPublish  data={inv} invId={slug} onPublish={handlePublish} onUnpublish={handleUnpublish} onNext={handleNext} saving={saving} />}
           </div>
         </div>
 

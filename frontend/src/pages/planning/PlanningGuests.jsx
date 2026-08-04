@@ -3,6 +3,7 @@ import { planningApi, RSVP_STATUSES } from '../../lib/planningApi'
 import { getErrorMessage } from '../../lib/api'
 import { usePlanningEvent } from '../../context/usePlanningEvent'
 import { GRADIENT, Spinner, LoadError, EmptyState, InlineFormError, PlanningModulePage } from './shared'
+import Select from '../../components/Select'
 
 const RSVP_STYLE = {
   PENDING:  { bg: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.5)' },
@@ -107,11 +108,12 @@ function GuestsContent({ eventType, eventId, onChanged }) {
                 <p className="text-white text-[13.5px] font-medium">{g.name}{g.plus_one && ' (+1)'}</p>
                 <p className="text-white/30 text-[11px]">{[g.phone, g.email, g.side].filter(Boolean).join(' · ')}</p>
               </div>
-              <select className="glass-input py-1 w-auto" value={g.rsvp} onChange={e => updateRsvp(g, e.target.value)}
-                aria-label={`RSVP status for ${g.name}`}
-                style={{ background: rs.bg, color: rs.color }}>
-                {RSVP_STATUSES.map(r => <option key={r} value={r}>{r[0] + r.slice(1).toLowerCase()}</option>)}
-              </select>
+              <Select
+                compact value={g.rsvp} onChange={v => updateRsvp(g, v)}
+                ariaLabel={`RSVP status for ${g.name}`}
+                style={{ background: rs.bg, color: rs.color }}
+                options={RSVP_STATUSES.map(r => ({ value: r, label: r[0] + r.slice(1).toLowerCase() }))}
+              />
               <button onClick={() => remove(g.id)} aria-label={`Remove ${g.name}`} className="text-white/25 hover:text-rose-400 transition-colors">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
               </button>

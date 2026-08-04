@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import logo from '../assets/logo.png'
+import AppLayout from '../components/AppLayout'
 
 // ── Storage helpers ────────────────────────────────────────────────────────────
 const getWeddings  = () => JSON.parse(localStorage.getItem('planazo_invitations') || '[]')
@@ -383,15 +384,7 @@ export default function Gallery() {
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-[#060412] text-white">
-
-      {/* Background orbs */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
-        <div className="bg-orb orb-purple" style={{ opacity: 0.11 }} />
-        <div className="bg-orb orb-blue"   style={{ opacity: 0.08 }} />
-        <div className="grid-lines" />
-      </div>
-
+    <AppLayout orbOpacity={{ purple: 0.11, blue: 0.08 }}>
       {/* Header */}
       <header className="relative sticky top-0 z-20 border-b border-white/[0.06] bg-[#060412]/80 backdrop-blur-xl">
         <div className="max-w-7xl mx-auto px-5 h-14 flex items-center gap-3">
@@ -408,7 +401,7 @@ export default function Gallery() {
       </header>
 
       {/* Body */}
-      <main className="relative max-w-7xl mx-auto px-5 py-7 flex gap-6 items-start">
+      <div className="relative max-w-7xl mx-auto px-5 py-7 flex gap-6 items-start">
 
         {/* ── Left: upload & grid ─────────────────────────────────────────── */}
         <div className="flex-1 min-w-0 flex flex-col gap-5">
@@ -657,7 +650,7 @@ export default function Gallery() {
             )}
           </div>
         </div>
-      </main>
+      </div>
 
       {/* Lightbox */}
       {lightboxIdx !== null && (
@@ -677,6 +670,6 @@ export default function Gallery() {
           to   { left: 120%; }
         }
       `}</style>
-    </div>
+    </AppLayout>
   )
 }

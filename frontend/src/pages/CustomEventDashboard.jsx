@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { customEventsApi, EVENT_TYPES, STATUSES, VISIBILITIES } from '../lib/customEventsApi'
 import { uploadImage } from '../lib/eventsApi'
+import Select from '../components/Select'
 
 const ACCENT = '#0ea5e9'
 
@@ -46,9 +47,10 @@ function OverviewTab({ event, summary, onUpdate }) {
           </div>
           <div>
             <p className="text-white/35 text-[11px] font-semibold tracking-widest uppercase mb-1">Status</p>
-            <select className="glass-input py-1.5" value={event.status} onChange={e => onUpdate({ status: e.target.value })}>
-              {STATUSES.map(s => <option key={s} value={s}>{s[0] + s.slice(1).toLowerCase()}</option>)}
-            </select>
+            <Select
+              compact className="w-full" value={event.status} onChange={v => onUpdate({ status: v })}
+              options={STATUSES.map(s => ({ value: s, label: s[0] + s.slice(1).toLowerCase() }))}
+            />
           </div>
           <div>
             <p className="text-white/35 text-[11px] font-semibold tracking-widest uppercase mb-1">Location</p>
@@ -148,9 +150,10 @@ function ChecklistTab({ eventId, onChanged }) {
         <div className="grid grid-cols-[1fr_auto_auto] gap-2">
           <input className="glass-input" placeholder="Add a task…" value={task}
             onChange={e => setTask(e.target.value)} onKeyDown={e => e.key === 'Enter' && addItem()} />
-          <select className="glass-input" value={priority} onChange={e => setPriority(e.target.value)}>
-            <option value="LOW">Low</option><option value="MEDIUM">Medium</option><option value="HIGH">High</option>
-          </select>
+          <Select
+            className="w-full" value={priority} onChange={setPriority}
+            options={[{ value: 'LOW', label: 'Low' }, { value: 'MEDIUM', label: 'Medium' }, { value: 'HIGH', label: 'High' }]}
+          />
           <input type="date" className="glass-input" value={dueDate} onChange={e => setDueDate(e.target.value)} />
         </div>
         <button onClick={addItem} disabled={!task.trim()}
@@ -434,9 +437,10 @@ function FilesTab({ eventId }) {
       <div className="glass-card p-4 space-y-3">
         <div className="field-group">
           <label className="field-label">File Type</label>
-          <select className="glass-input" value={fileType} onChange={e => setFileType(e.target.value)}>
-            {FILE_TYPES.map(t => <option key={t} value={t}>{t[0].toUpperCase() + t.slice(1)}</option>)}
-          </select>
+          <Select
+            className="w-full" value={fileType} onChange={setFileType}
+            options={FILE_TYPES.map(t => ({ value: t, label: t[0].toUpperCase() + t.slice(1) }))}
+          />
         </div>
         <button onClick={() => fileRef.current?.click()} disabled={uploading}
           className="w-full py-3 rounded-xl text-[13px] font-semibold transition-colors duration-200 disabled:opacity-50"
@@ -505,10 +509,10 @@ function MembersTab({ eventId }) {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           <input className="glass-input" placeholder="Name" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
           <input className="glass-input" placeholder="Email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
-          <select className="glass-input" value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))}>
-            <option value="ORGANIZER">Organizer</option>
-            <option value="VIEWER">Viewer</option>
-          </select>
+          <Select
+            className="w-full" value={form.role} onChange={v => setForm(f => ({ ...f, role: v }))}
+            options={[{ value: 'ORGANIZER', label: 'Organizer' }, { value: 'VIEWER', label: 'Viewer' }]}
+          />
         </div>
         <button onClick={addMember} disabled={!form.name.trim() || !form.email.trim()}
           className="px-5 py-2 rounded-full text-[13px] font-semibold text-white transition-all duration-200 disabled:opacity-40"

@@ -30,7 +30,12 @@ export async function uploadImage(file, folder = 'gallery') {
   if (upload_url.startsWith('/api/storage/local-upload')) {
     const form = new FormData()
     form.append('file', file)
-    await api.post(upload_url, form)
+    // The shared `api` instance defaults to Content-Type: application/json
+    // (see lib/api.js) — that default overrides axios's own FormData
+    // handling, so the browser never gets to set the multipart/form-data
+    // boundary header itself. Without this override the file part doesn't
+    // reach FastAPI and File(...) fails with a 422 "Field required".
+    await api.post(upload_url, form, { headers: { 'Content-Type': undefined } })
   } else {
     await fetch(upload_url, { method: 'PUT', headers: { 'Content-Type': file.type }, body: file })
   }

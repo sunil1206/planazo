@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import logo from '../assets/logo.png'
 import { birthdayApi } from '../lib/eventsApi'
+import AppLayout from '../components/AppLayout'
 
 const THEMES = [
   { id: 'neon_party',    emoji: '🎉', name: 'Neon Party',    desc: 'Vibrant neons, electric vibes',
@@ -68,14 +69,7 @@ export default function Birthdays() {
   }
 
   return (
-    <div className="min-h-screen bg-[#060412] text-white">
-
-      <div className="fixed inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
-        <div className="bg-orb orb-purple" style={{ opacity: 0.12 }} />
-        <div className="bg-orb orb-blue"   style={{ opacity: 0.09 }} />
-        <div className="grid-lines" />
-      </div>
-
+    <AppLayout orbOpacity={{ purple: 0.12, blue: 0.09 }}>
       <header className="relative sticky top-0 z-20 border-b border-white/[0.06] bg-[#060412]/80 backdrop-blur-xl">
         <div className="max-w-6xl mx-auto px-5 h-14 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -100,7 +94,7 @@ export default function Birthdays() {
         </div>
       </header>
 
-      <main className="relative max-w-6xl mx-auto px-5 py-8">
+      <div className="relative max-w-6xl mx-auto px-5 py-8">
         {loading ? (
           <div className="flex items-center justify-center py-28">
             <div className="w-7 h-7 border border-amber-500/40 border-t-amber-500 rounded-full animate-spin" />
@@ -212,14 +206,14 @@ export default function Birthdays() {
             })}
           </div>
         )}
-      </main>
+      </div>
 
       {/* Delete Confirmation */}
       {confirmDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ animation: 'modal-bg-in 0.2s ease both' }}>
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setConfirmDelete(null)} />
-          <div className="relative glass-card w-full max-w-[360px] p-6 text-center"
+          <div className="absolute inset-0 modal-overlay" onClick={() => setConfirmDelete(null)} />
+          <div className="relative modal-panel w-full max-w-[360px] p-6 text-center"
             style={{ borderRadius: '36px', animation: 'modal-card-in 0.28s cubic-bezier(0.34,1.38,0.64,1) both' }}>
             <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4"
               style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.22)' }}>
@@ -250,8 +244,8 @@ export default function Birthdays() {
       {showCreate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ animation: 'modal-bg-in 0.22s ease both' }}>
-          <div className="absolute inset-0 bg-black/55 backdrop-blur-sm" onClick={() => setShowCreate(false)} />
-          <div className="relative glass-card w-full max-w-[460px] p-6"
+          <div className="absolute inset-0 modal-overlay" onClick={() => setShowCreate(false)} />
+          <div className="relative modal-panel w-full max-w-[460px] p-6 max-h-[90vh] overflow-y-auto sidebar-scroll"
             style={{ borderRadius: '36px', animation: 'modal-card-in 0.3s cubic-bezier(0.34,1.38,0.64,1) both' }}>
 
             <div className="flex items-center justify-between mb-5">
@@ -338,6 +332,6 @@ export default function Birthdays() {
           </div>
         </div>
       )}
-    </div>
+    </AppLayout>
   )
 }

@@ -104,6 +104,32 @@
     0 0 0 1px rgba(0, 0, 0, 0.3);
 }
 
+/* ── Modal ──────────────────────────────────────────────────────────────────────
+   Shared look for every floating dialog (confirmations, create/edit forms,
+   sign-out, etc.) — a single source of truth so all modals stay visually
+   consistent and new ones inherit it automatically by using these two
+   classes instead of rolling their own backdrop/panel opacity. Deliberately
+   more opaque than .glass-card: a modal sits *over* page content, so it
+   needs to fully obscure what's behind it rather than let it ghost through. */
+
+.modal-overlay {
+  background: rgba(3, 2, 8, 0.82);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.modal-panel {
+  background: linear-gradient(160deg, rgba(26, 18, 46, 0.97) 0%, rgba(11, 8, 20, 0.99) 100%);
+  backdrop-filter: blur(24px) saturate(1.5);
+  -webkit-backdrop-filter: blur(24px) saturate(1.5);
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  box-shadow:
+    0 2px 0 0 rgba(255, 255, 255, 0.07) inset,
+    0 30px 80px rgba(0, 0, 0, 0.65),
+    0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+
 /* ── Inputs ─────────────────────────────────────────────────────────────────── */
 
 .field-group {
@@ -324,6 +350,11 @@
 
 @keyframes modal-card-in {
   from { opacity: 0; transform: translateY(24px) scale(0.95); }
+  to   { opacity: 1; transform: translateY(0)    scale(1); }
+}
+
+@keyframes select-panel-in {
+  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
   to   { opacity: 1; transform: translateY(0)    scale(1); }
 }
 

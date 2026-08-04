@@ -27,7 +27,7 @@ export default function AppLayout({ children, orbOpacity = { purple: 0.18, blue:
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   return (
-    <div className="min-h-screen bg-[#060412] flex relative overflow-x-hidden">
+    <div className="h-screen bg-[#060412] flex relative overflow-hidden">
       {/* Background orbs */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
         <div className="bg-orb orb-purple" style={{ opacity: orbOpacity.purple }} />
@@ -45,7 +45,7 @@ export default function AppLayout({ children, orbOpacity = { purple: 0.18, blue:
       )}
 
       {/* Main content */}
-      <main className="flex-1 lg:ml-64 min-h-screen overflow-y-auto overflow-x-hidden">
+      <main className="flex-1 lg:ml-56 min-h-0 overflow-y-auto overflow-x-hidden">
         {/* Mobile top bar */}
         <div className="lg:hidden flex items-center gap-3 px-4 py-3.5 border-b border-white/[0.07] bg-[#060412]/80 backdrop-blur-xl sticky top-0 z-20">
           <button onClick={() => setSidebarOpen(true)} className="text-white/60 hover:text-white transition-colors p-1" aria-label="Open menu">

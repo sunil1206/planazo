@@ -138,7 +138,7 @@ function NavGroup({ groupKey, icon, label, children, pathname, onNavigate }) {
     setOpen(true)
   }
   const collapse = () => {
-    timerRef.current = setTimeout(() => setOpen(childActive), 120)
+    timerRef.current = setTimeout(() => setOpen(false), 120)
   }
 
   return (
@@ -193,8 +193,8 @@ function SignOutModal({ onConfirm, onCancel }) {
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4"
       style={{ animation: 'modal-bg-in 0.22s ease both' }}>
-      <div className="absolute inset-0 bg-black/55 backdrop-blur-sm" onClick={onCancel} />
-      <div className="relative glass-card w-full max-w-[320px] px-6 py-6 text-center"
+      <div className="absolute inset-0 modal-overlay" onClick={onCancel} />
+      <div className="relative modal-panel w-full max-w-[320px] px-6 py-6 text-center"
         style={{ animation: 'modal-card-in 0.3s cubic-bezier(0.34,1.38,0.64,1) both', borderRadius: '44px' }}>
         <div className="w-10 h-10 rounded-full mx-auto mb-3.5 flex items-center justify-center"
           style={{ background: 'rgba(244,63,94,0.10)', border: '1px solid rgba(244,63,94,0.18)' }}>
@@ -258,7 +258,7 @@ export default function Sidebar({ open, onNavigate }) {
         <SignOutModal onConfirm={confirmSignOut} onCancel={() => setShowSignOut(false)} />
       )}
 
-      <aside className={`fixed top-0 left-0 h-screen w-64 z-40 flex flex-col overflow-hidden
+      <aside className={`fixed top-0 left-0 h-screen w-56 z-40 flex flex-col overflow-hidden
         bg-white/[0.035] backdrop-blur-2xl border-r border-white/[0.07]
         transition-transform duration-300
         ${open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>

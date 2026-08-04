@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import logo from '../assets/logo.png'
 import { customEventsApi, EVENT_TYPES, STATUSES, VISIBILITIES } from '../lib/customEventsApi'
+import AppLayout from '../components/AppLayout'
+import Select from '../components/Select'
 
 const THEME_COLORS = ['#7c3aed', '#0ea5e9', '#10b981', '#f59e0b', '#ec4899', '#ef4444', '#6366f1', '#14b8a6']
 
@@ -87,13 +89,7 @@ export default function CustomEvents() {
   }
 
   return (
-    <div className="min-h-screen bg-[#060412] text-white">
-      <div className="fixed inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
-        <div className="bg-orb orb-blue" style={{ opacity: 0.12 }} />
-        <div className="bg-orb orb-purple" style={{ opacity: 0.09 }} />
-        <div className="grid-lines" />
-      </div>
-
+    <AppLayout orbOpacity={{ purple: 0.09, blue: 0.12 }}>
       <header className="relative sticky top-0 z-20 border-b border-white/[0.06] bg-[#060412]/80 backdrop-blur-xl">
         <div className="max-w-6xl mx-auto px-5 h-14 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -118,7 +114,7 @@ export default function CustomEvents() {
         </div>
       </header>
 
-      <main className="relative max-w-6xl mx-auto px-5 py-8">
+      <div className="relative max-w-6xl mx-auto px-5 py-8">
 
         {/* Filters */}
         <div className="flex flex-wrap items-center gap-2.5 mb-6">
@@ -126,14 +122,14 @@ export default function CustomEvents() {
             value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Search by title, location, or type…"
             className="glass-input flex-1 min-w-[200px]" style={{ maxWidth: '360px' }} />
-          <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} className="glass-input" style={{ width: 'auto' }}>
-            <option value="All">All Types</option>
-            {EVENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-          </select>
-          <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="glass-input" style={{ width: 'auto' }}>
-            <option value="All">All Statuses</option>
-            {STATUSES.map(s => <option key={s} value={s}>{s[0] + s.slice(1).toLowerCase()}</option>)}
-          </select>
+          <Select
+            value={typeFilter} onChange={setTypeFilter} ariaLabel="Filter by event type"
+            options={[{ value: 'All', label: 'All Types' }, ...EVENT_TYPES.map(t => ({ value: t, label: t }))]}
+          />
+          <Select
+            value={statusFilter} onChange={setStatusFilter} ariaLabel="Filter by status"
+            options={[{ value: 'All', label: 'All Statuses' }, ...STATUSES.map(s => ({ value: s, label: s[0] + s.slice(1).toLowerCase() }))]}
+          />
         </div>
 
         {loading ? (
@@ -206,13 +202,13 @@ export default function CustomEvents() {
             })}
           </div>
         )}
-      </main>
+      </div>
 
       {/* Delete Confirmation */}
       {confirmDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ animation: 'modal-bg-in 0.2s ease both' }}>
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setConfirmDelete(null)} />
-          <div className="relative glass-card w-full max-w-[360px] p-6 text-center"
+          <div className="absolute inset-0 modal-overlay" onClick={() => setConfirmDelete(null)} />
+          <div className="relative modal-panel w-full max-w-[360px] p-6 text-center"
             style={{ borderRadius: '36px', animation: 'modal-card-in 0.28s cubic-bezier(0.34,1.38,0.64,1) both' }}>
             <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4"
               style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.22)' }}>
@@ -242,8 +238,8 @@ export default function CustomEvents() {
       {/* Create Modal */}
       {showCreate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ animation: 'modal-bg-in 0.22s ease both' }}>
-          <div className="absolute inset-0 bg-black/55 backdrop-blur-sm" onClick={() => setShowCreate(false)} />
-          <div className="relative glass-card w-full max-w-[520px] p-6 max-h-[88vh] overflow-y-auto sidebar-scroll"
+          <div className="absolute inset-0 modal-overlay" onClick={() => setShowCreate(false)} />
+          <div className="relative modal-panel w-full max-w-[520px] p-6 max-h-[88vh] overflow-y-auto sidebar-scroll"
             style={{ borderRadius: '36px', animation: 'modal-card-in 0.3s cubic-bezier(0.34,1.38,0.64,1) both' }}>
 
             <div className="flex items-center justify-between mb-5">
@@ -273,9 +269,10 @@ export default function CustomEvents() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="field-group">
                   <label className="field-label">Event Type</label>
-                  <select className="glass-input" value={form.event_type} onChange={e => setForm(f => ({ ...f, event_type: e.target.value }))}>
-                    {EVENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
+                  <Select
+                    className="w-full" value={form.event_type} onChange={v => setForm(f => ({ ...f, event_type: v }))}
+                    options={EVENT_TYPES.map(t => ({ value: t, label: t }))}
+                  />
                 </div>
                 {form.event_type === 'Other' && (
                   <div className="field-group">
@@ -325,15 +322,17 @@ export default function CustomEvents() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="field-group">
                   <label className="field-label">Visibility</label>
-                  <select className="glass-input" value={form.visibility} onChange={e => setForm(f => ({ ...f, visibility: e.target.value }))}>
-                    {VISIBILITIES.map(v => <option key={v} value={v}>{v[0] + v.slice(1).toLowerCase()}</option>)}
-                  </select>
+                  <Select
+                    className="w-full" value={form.visibility} onChange={v => setForm(f => ({ ...f, visibility: v }))}
+                    options={VISIBILITIES.map(v => ({ value: v, label: v[0] + v.slice(1).toLowerCase() }))}
+                  />
                 </div>
                 <div className="field-group">
                   <label className="field-label">Status</label>
-                  <select className="glass-input" value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}>
-                    {STATUSES.map(s => <option key={s} value={s}>{s[0] + s.slice(1).toLowerCase()}</option>)}
-                  </select>
+                  <Select
+                    className="w-full" value={form.status} onChange={v => setForm(f => ({ ...f, status: v }))}
+                    options={STATUSES.map(s => ({ value: s, label: s[0] + s.slice(1).toLowerCase() }))}
+                  />
                 </div>
               </div>
             </div>
@@ -352,6 +351,6 @@ export default function CustomEvents() {
           </div>
         </div>
       )}
-    </div>
+    </AppLayout>
   )
 }

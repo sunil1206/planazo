@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import logo from '../assets/logo.png'
 import { weddingApi } from '../lib/eventsApi'
+import AppLayout from '../components/AppLayout'
 
 // ── Theme config ──────────────────────────────────────────────────────────────
 const THEMES = [
@@ -9,6 +10,8 @@ const THEMES = [
     bg: 'linear-gradient(135deg, #5c1b0a 0%, #7c2d12 50%, #92400e 100%)' },
   { id: 'kerala_traditional', emoji: '🌿', name: 'Kerala Traditional',  desc: 'Kasavu border, red & gold',
     bg: 'linear-gradient(135deg, #4a0d0d 0%, #991b1b 50%, #92400e 100%)' },
+  { id: 'kerala_light',       emoji: '🪷', name: 'Kerala Ivory',       desc: 'Ivory & gold Kasavu, temple motifs',
+    bg: 'linear-gradient(180deg, #fffdf5 0%, #fffdf5 72%, #f5cb5c 72%, #eab308 82%, #f5cb5c 92%, #d4af37 100%)' },
   { id: 'modern_minimal',     emoji: '✨', name: 'Modern Minimal',      desc: 'Clean & contemporary',
     bg: 'linear-gradient(135deg, #1f2937 0%, #374151 50%, #4b5563 100%)' },
   { id: 'floral_pastel',      emoji: '🌸', name: 'Floral Pastel',       desc: 'Pink, lavender, dreamy',
@@ -62,15 +65,7 @@ export default function Weddings() {
   }
 
   return (
-    <div className="min-h-screen bg-[#060412] text-white">
-
-      {/* Ambient background */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
-        <div className="bg-orb orb-purple" style={{ opacity: 0.12 }} />
-        <div className="bg-orb orb-blue"   style={{ opacity: 0.09 }} />
-        <div className="grid-lines" />
-      </div>
-
+    <AppLayout orbOpacity={{ purple: 0.12, blue: 0.09 }}>
       {/* Header */}
       <header className="relative sticky top-0 z-20 border-b border-white/[0.06] bg-[#060412]/80 backdrop-blur-xl">
         <div className="max-w-6xl mx-auto px-5 h-14 flex items-center justify-between gap-4">
@@ -101,7 +96,7 @@ export default function Weddings() {
       </header>
 
       {/* Content */}
-      <main className="relative max-w-6xl mx-auto px-5 py-8">
+      <div className="relative max-w-6xl mx-auto px-5 py-8">
         {loading ? (
           <div className="flex items-center justify-center py-28">
             <div className="w-7 h-7 border border-purple-500/40 border-t-purple-500 rounded-full animate-spin" />
@@ -138,6 +133,7 @@ export default function Weddings() {
                     const photoFilters = {
                       royal_mughal:       'sepia(0.5) contrast(1.1) brightness(0.75)',
                       kerala_traditional: 'saturate(0.8) sepia(0.25) contrast(1.05) brightness(0.75)',
+                      kerala_light:       'saturate(1.05) sepia(0.15) contrast(1.02) brightness(0.9)',
                       modern_minimal:     'grayscale(0.4) contrast(1.2) brightness(0.75)',
                       floral_pastel:      'saturate(1.1) hue-rotate(330deg) brightness(0.75)',
                       cinematic_dark:     'grayscale(0.6) contrast(1.3) brightness(0.65)',
@@ -234,14 +230,14 @@ export default function Weddings() {
             })}
           </div>
         )}
-      </main>
+      </div>
 
       {/* Delete Confirmation Modal */}
       {confirmDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ animation: 'modal-bg-in 0.2s ease both' }}>
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setConfirmDelete(null)} />
-          <div className="relative glass-card w-full max-w-[360px] p-6 text-center"
+          <div className="absolute inset-0 modal-overlay" onClick={() => setConfirmDelete(null)} />
+          <div className="relative modal-panel w-full max-w-[360px] p-6 text-center"
             style={{ borderRadius: '36px', animation: 'modal-card-in 0.28s cubic-bezier(0.34,1.38,0.64,1) both' }}>
             <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4"
               style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.22)' }}>
@@ -276,9 +272,9 @@ export default function Weddings() {
       {showCreate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ animation: 'modal-bg-in 0.22s ease both' }}>
-          <div className="absolute inset-0 bg-black/55 backdrop-blur-sm" onClick={() => setShowCreate(false)} />
+          <div className="absolute inset-0 modal-overlay" onClick={() => setShowCreate(false)} />
 
-          <div className="relative glass-card w-full max-w-[460px] p-6"
+          <div className="relative modal-panel w-full max-w-[460px] p-6 max-h-[90vh] overflow-y-auto sidebar-scroll"
             style={{ borderRadius: '36px', animation: 'modal-card-in 0.3s cubic-bezier(0.34,1.38,0.64,1) both' }}>
 
             {/* Header */}
@@ -332,35 +328,35 @@ export default function Weddings() {
               {/* Theme picker */}
               <div className="field-group">
                 <label className="field-label">Choose a Theme <span className="text-rose-400 normal-case font-normal">*</span></label>
-                <div className="grid grid-cols-2 gap-2 mt-1">
+                <div className="grid grid-cols-2 gap-2.5 mt-1.5">
                   {THEMES.map(theme => (
                     <button
                       key={theme.id}
                       type="button"
                       onClick={() => setForm(f => ({ ...f, theme: theme.id }))}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-xl border transition-all duration-150 text-left
+                      className={`relative rounded-2xl border overflow-hidden text-left transition-all duration-200
                         ${form.theme === theme.id
-                          ? 'bg-purple-500/12 border-purple-500/45'
-                          : 'bg-white/[0.03] border-white/[0.07] hover:bg-white/[0.055] hover:border-white/[0.12]'
+                          ? 'border-purple-400/55 shadow-[0_0_0_3px_rgba(139,92,246,0.18),0_10px_24px_rgba(124,58,237,0.25)] -translate-y-0.5'
+                          : 'border-white/[0.08] hover:border-white/20 hover:-translate-y-0.5'
                         }`}
                     >
-                      <div className="w-7 h-7 rounded-lg shrink-0 flex items-center justify-center text-sm"
-                        style={{ background: theme.bg }}>
-                        {theme.emoji}
+                      <div className="h-14 flex items-center justify-center relative" style={{ background: theme.bg }}>
+                        <span className="text-[22px] leading-none drop-shadow-[0_1px_3px_rgba(0,0,0,0.45)]">{theme.emoji}</span>
+                        <div className="absolute inset-0 ring-1 ring-inset ring-black/10 pointer-events-none" />
+                        {form.theme === theme.id && (
+                          <span className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-purple-500 flex items-center justify-center shadow-md">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M20 6L9 17l-5-5"/>
+                            </svg>
+                          </span>
+                        )}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-[12px] font-semibold truncate leading-tight ${form.theme === theme.id ? 'text-white' : 'text-white/70'}`}>
+                      <div className={`px-2.5 py-1.5 transition-colors duration-200 ${form.theme === theme.id ? 'bg-purple-500/12' : 'bg-white/[0.025]'}`}>
+                        <p className={`text-[11.5px] font-semibold truncate leading-tight ${form.theme === theme.id ? 'text-white' : 'text-white/72'}`}>
                           {theme.name}
                         </p>
-                        <p className="text-[10px] text-white/28 truncate">{theme.desc}</p>
+                        <p className="text-[9.5px] text-white/30 truncate">{theme.desc}</p>
                       </div>
-                      {form.theme === theme.id && (
-                        <span className="text-purple-400 shrink-0">
-                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M20 6L9 17l-5-5"/>
-                          </svg>
-                        </span>
-                      )}
                     </button>
                   ))}
                 </div>
@@ -389,6 +385,6 @@ export default function Weddings() {
           </div>
         </div>
       )}
-    </div>
+    </AppLayout>
   )
 }

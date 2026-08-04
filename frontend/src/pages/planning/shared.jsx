@@ -10,6 +10,7 @@ import { getErrorMessage } from '../../lib/api'
 import { usePlanningEvent } from '../../context/usePlanningEvent'
 import AppLayout from '../../components/AppLayout'
 import PlanningEventCard from '../../components/PlanningEventCard'
+import Select from '../../components/Select'
 import logo from '../../assets/logo.png'
 
 export const ACCENT = '#10b981'
@@ -104,13 +105,15 @@ export function EventPicker({ onSelect }) {
           placeholder="Search your events…"
           aria-label="Search your events"
           className="glass-input flex-1 min-w-[200px]" style={{ maxWidth: '360px' }} />
-        <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} className="glass-input" style={{ width: 'auto' }}
-          aria-label="Filter by event type">
-          <option value="All">All Event Types</option>
-          <option value="wedding">Wedding</option>
-          <option value="birthday">Birthday</option>
-          <option value="custom">Custom Events</option>
-        </select>
+        <Select
+          value={typeFilter} onChange={setTypeFilter} ariaLabel="Filter by event type"
+          options={[
+            { value: 'All', label: 'All Event Types' },
+            { value: 'wedding', label: 'Wedding' },
+            { value: 'birthday', label: 'Birthday' },
+            { value: 'custom', label: 'Custom Events' },
+          ]}
+        />
       </div>
 
       {loading ? <Spinner /> : loadErr ? (
