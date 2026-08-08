@@ -56,3 +56,19 @@ def require_role(*roles: str):
                                 detail=f"Requires role: {', '.join(roles)}")
         return current_user
     return checker
+
+
+def require_capability(capability: str):
+    """Admin RBAC gate — see app/models/admin_permissions.py::AdminRole.
+    Unrelated to require_role() above, which checks the account-type `role`
+    column (USER/VENDOR/PHOTOGRAPHER), not admin-panel permissions.
+    """
+    async def checker(current_user=Depends(get_current_user)):
+        from app.models.admin_permissions import AdminRole
+        if current_user.is_superuser:
+            return current_user
+        if not AdminRole.has_capability(current_user.admin_role, capability):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                                detail=f"Requires capability: {capability}")
+        return current_user
+    return checker

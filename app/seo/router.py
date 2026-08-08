@@ -24,7 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.database.base import get_db
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_current_user, require_capability
 from app.models.user import User
 from app.seo.models import (
     SeoMetaOverride, SeoRobotsRule, SeoRedirect,
@@ -51,11 +51,6 @@ logger = logging.getLogger("planazo")
 router = APIRouter(tags=["seo"])
 
 
-def _require_admin(user: User) -> None:
-    if user.role != "ADMIN" and not user.is_superuser:
-        raise HTTPException(403, "Admin access required")
-
-
 # ── Public: sitemap.xml / robots.txt ───────────────────────────────────────────
 
 @router.get("/sitemap.xml", include_in_schema=False)
@@ -74,10 +69,9 @@ async def robots_txt(db: AsyncSession = Depends(get_db)):
 
 @router.get("/api/seo/admin/sitemap-summary", response_model=SitemapSummary)
 async def sitemap_summary(
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_capability("seo:manage")),
     db: AsyncSession = Depends(get_db),
 ):
-    _require_admin(user)
     urls = await collect_sitemap_urls(db)
     by_source: dict[str, int] = {}
     for u in urls:
@@ -89,10 +83,9 @@ async def sitemap_summary(
 
 @router.get("/api/seo/admin/overrides", response_model=List[SeoMetaOverrideRead])
 async def list_overrides(
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_capability("seo:manage")),
     db: AsyncSession = Depends(get_db),
 ):
-    _require_admin(user)
     result = await db.execute(select(SeoMetaOverride).order_by(SeoMetaOverride.updated_at.desc().nullslast()))
     return result.scalars().all()
 
@@ -100,10 +93,9 @@ async def list_overrides(
 @router.post("/api/seo/admin/overrides", response_model=SeoMetaOverrideRead, status_code=201)
 async def create_override(
     body: SeoMetaOverrideCreate,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_capability("seo:manage")),
     db: AsyncSession = Depends(get_db),
 ):
-    _require_admin(user)
     existing = await db.execute(select(SeoMetaOverride).where(SeoMetaOverride.path == body.path))
     if existing.scalar_one_or_none():
         raise HTTPException(400, f"An override for {body.path} already exists")
@@ -118,10 +110,9 @@ async def create_override(
 async def update_override(
     override_id: int,
     body: SeoMetaOverrideUpdate,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_capability("seo:manage")),
     db: AsyncSession = Depends(get_db),
 ):
-    _require_admin(user)
     result = await db.execute(select(SeoMetaOverride).where(SeoMetaOverride.id == override_id))
     override = result.scalar_one_or_none()
     if not override:
@@ -136,10 +127,9 @@ async def update_override(
 @router.delete("/api/seo/admin/overrides/{override_id}", status_code=204)
 async def delete_override(
     override_id: int,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_capability("seo:manage")),
     db: AsyncSession = Depends(get_db),
 ):
-    _require_admin(user)
     result = await db.execute(select(SeoMetaOverride).where(SeoMetaOverride.id == override_id))
     override = result.scalar_one_or_none()
     if not override:
@@ -152,10 +142,9 @@ async def delete_override(
 
 @router.get("/api/seo/admin/robots-rules", response_model=List[SeoRobotsRuleRead])
 async def list_robots_rules(
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_capability("seo:manage")),
     db: AsyncSession = Depends(get_db),
 ):
-    _require_admin(user)
     result = await db.execute(select(SeoRobotsRule))
     return result.scalars().all()
 
@@ -163,10 +152,9 @@ async def list_robots_rules(
 @router.post("/api/seo/admin/robots-rules", response_model=SeoRobotsRuleRead, status_code=201)
 async def create_robots_rule(
     body: SeoRobotsRuleCreate,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_capability("seo:manage")),
     db: AsyncSession = Depends(get_db),
 ):
-    _require_admin(user)
     rule = SeoRobotsRule(**body.model_dump())
     db.add(rule)
     await db.commit()
@@ -178,10 +166,9 @@ async def create_robots_rule(
 async def update_robots_rule(
     rule_id: int,
     body: SeoRobotsRuleUpdate,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_capability("seo:manage")),
     db: AsyncSession = Depends(get_db),
 ):
-    _require_admin(user)
     result = await db.execute(select(SeoRobotsRule).where(SeoRobotsRule.id == rule_id))
     rule = result.scalar_one_or_none()
     if not rule:
@@ -196,10 +183,9 @@ async def update_robots_rule(
 @router.delete("/api/seo/admin/robots-rules/{rule_id}", status_code=204)
 async def delete_robots_rule(
     rule_id: int,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_capability("seo:manage")),
     db: AsyncSession = Depends(get_db),
 ):
-    _require_admin(user)
     result = await db.execute(select(SeoRobotsRule).where(SeoRobotsRule.id == rule_id))
     rule = result.scalar_one_or_none()
     if not rule:
@@ -212,10 +198,9 @@ async def delete_robots_rule(
 
 @router.get("/api/seo/admin/redirects", response_model=List[SeoRedirectRead])
 async def list_redirects(
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_capability("seo:manage")),
     db: AsyncSession = Depends(get_db),
 ):
-    _require_admin(user)
     result = await db.execute(select(SeoRedirect).order_by(SeoRedirect.updated_at.desc().nullslast()))
     return result.scalars().all()
 
@@ -223,10 +208,9 @@ async def list_redirects(
 @router.post("/api/seo/admin/redirects", response_model=SeoRedirectRead, status_code=201)
 async def create_redirect(
     body: SeoRedirectCreate,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_capability("seo:manage")),
     db: AsyncSession = Depends(get_db),
 ):
-    _require_admin(user)
     existing = await db.execute(select(SeoRedirect).where(SeoRedirect.source_path == body.source_path))
     if existing.scalar_one_or_none():
         raise HTTPException(400, f"A redirect for {body.source_path} already exists")
@@ -241,10 +225,9 @@ async def create_redirect(
 async def update_redirect(
     redirect_id: int,
     body: SeoRedirectUpdate,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_capability("seo:manage")),
     db: AsyncSession = Depends(get_db),
 ):
-    _require_admin(user)
     result = await db.execute(select(SeoRedirect).where(SeoRedirect.id == redirect_id))
     redirect = result.scalar_one_or_none()
     if not redirect:
@@ -259,10 +242,9 @@ async def update_redirect(
 @router.delete("/api/seo/admin/redirects/{redirect_id}", status_code=204)
 async def delete_redirect(
     redirect_id: int,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_capability("seo:manage")),
     db: AsyncSession = Depends(get_db),
 ):
-    _require_admin(user)
     result = await db.execute(select(SeoRedirect).where(SeoRedirect.id == redirect_id))
     redirect = result.scalar_one_or_none()
     if not redirect:
@@ -297,10 +279,9 @@ async def analyze(
 @router.post("/api/seo/admin/performance/check", response_model=SeoPerformanceSnapshotRead, status_code=201)
 async def run_performance_check(
     body: PerformanceCheckRequest,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_capability("seo:manage")),
     db: AsyncSession = Depends(get_db),
 ):
-    _require_admin(user)
     url = f"{settings.FRONTEND_URL.rstrip('/')}/{body.path.lstrip('/')}"
     try:
         metrics = await fetch_core_web_vitals(url, strategy=body.strategy)
@@ -318,10 +299,9 @@ async def run_performance_check(
 async def list_performance_snapshots(
     path: Optional[str] = Query(None),
     limit: int = Query(50, ge=1, le=200),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_capability("seo:manage")),
     db: AsyncSession = Depends(get_db),
 ):
-    _require_admin(user)
     q = select(SeoPerformanceSnapshot).order_by(SeoPerformanceSnapshot.fetched_at.desc()).limit(limit)
     if path:
         q = q.where(SeoPerformanceSnapshot.path == path)
@@ -335,10 +315,9 @@ async def list_performance_snapshots(
 
 @router.get("/api/seo/admin/blog", response_model=List[BlogPostRead])
 async def list_blog_posts(
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_capability("seo:manage")),
     db: AsyncSession = Depends(get_db),
 ):
-    _require_admin(user)
     result = await db.execute(select(BlogPost).order_by(BlogPost.created_at.desc()))
     return result.scalars().all()
 
@@ -346,10 +325,9 @@ async def list_blog_posts(
 @router.post("/api/seo/admin/blog", response_model=BlogPostRead, status_code=201)
 async def create_blog_post(
     body: BlogPostCreate,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_capability("seo:manage")),
     db: AsyncSession = Depends(get_db),
 ):
-    _require_admin(user)
     existing = await db.execute(select(BlogPost).where(BlogPost.slug == body.slug))
     if existing.scalar_one_or_none():
         raise HTTPException(400, f"A post with slug {body.slug} already exists")
@@ -366,10 +344,9 @@ async def create_blog_post(
 async def update_blog_post(
     post_id: int,
     body: BlogPostUpdate,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_capability("seo:manage")),
     db: AsyncSession = Depends(get_db),
 ):
-    _require_admin(user)
     result = await db.execute(select(BlogPost).where(BlogPost.id == post_id))
     post = result.scalar_one_or_none()
     if not post:
@@ -387,10 +364,9 @@ async def update_blog_post(
 @router.delete("/api/seo/admin/blog/{post_id}", status_code=204)
 async def delete_blog_post(
     post_id: int,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_capability("seo:manage")),
     db: AsyncSession = Depends(get_db),
 ):
-    _require_admin(user)
     result = await db.execute(select(BlogPost).where(BlogPost.id == post_id))
     post = result.scalar_one_or_none()
     if not post:
@@ -408,13 +384,12 @@ _GSC_STATE_PURPOSE = "gsc_oauth_state"
 
 @router.get("/api/seo/admin/gsc/connect")
 async def gsc_connect(
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_capability("seo:manage")),
 ):
     """Returns a Google OAuth consent URL for the admin to open in a browser
     tab. There's no dashboard button wired to this yet (see SEO_ROADMAP.md)
     — call this endpoint (e.g. via /api/docs while logged in as admin, or
     curl with your Bearer token) and open the returned URL yourself."""
-    _require_admin(user)
     if not settings.GOOGLE_CLIENT_ID or not settings.GOOGLE_CLIENT_SECRET:
         raise HTTPException(500, "GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET are not configured")
     state = jwt.encode(
@@ -489,10 +464,9 @@ async def gsc_callback(
 
 @router.get("/api/seo/admin/gsc/status", response_model=GscStatus)
 async def gsc_status(
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_capability("seo:manage")),
     db: AsyncSession = Depends(get_db),
 ):
-    _require_admin(user)
     result = await db.execute(select(SeoSearchConsoleToken))
     row = result.scalar_one_or_none()
     if not row:
@@ -502,10 +476,9 @@ async def gsc_status(
 
 @router.delete("/api/seo/admin/gsc/disconnect", status_code=204)
 async def gsc_disconnect(
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_capability("seo:manage")),
     db: AsyncSession = Depends(get_db),
 ):
-    _require_admin(user)
     result = await db.execute(select(SeoSearchConsoleToken))
     row = result.scalar_one_or_none()
     if row:
@@ -519,10 +492,9 @@ async def gsc_report(
     end_date: str = Query(..., description="YYYY-MM-DD"),
     dimensions: str = Query("query", description="Comma-separated: query, page, device, country"),
     row_limit: int = Query(25, ge=1, le=1000),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_capability("seo:manage")),
     db: AsyncSession = Depends(get_db),
 ):
-    _require_admin(user)
     result = await db.execute(select(SeoSearchConsoleToken))
     row = result.scalar_one_or_none()
     if not row:

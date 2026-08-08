@@ -14,6 +14,10 @@ class User(Base):
     email        = Column(String(254), unique=True, nullable=False, index=True)
     full_name    = Column(String(255), nullable=False, default="")
     role         = Column(String(20), nullable=False, default="USER")
+    # Platform admin role (app/models/admin_permissions.py::AdminRole), NULL = not
+    # an admin. Separate from `role` above, which is an account-type flag
+    # (USER/VENDOR/PHOTOGRAPHER), not an admin-panel permission level.
+    admin_role   = Column(String(30), nullable=True)
     google_id    = Column(String(255), unique=True, nullable=True)
     phone        = Column(String(20), unique=True, nullable=True)
     avatar_url   = Column(String(200), nullable=True)

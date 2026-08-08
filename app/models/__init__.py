@@ -40,6 +40,7 @@ from app.seo.models import (
     SeoMetaOverride, SeoRobotsRule, SeoRedirect,
     SeoPerformanceSnapshot, BlogPost, SeoSearchConsoleToken,
 )
+from app.models.audit_log import AuditLog
 
 __all__ = [
     "User",
@@ -62,4 +63,5 @@ __all__ = [
     "PlanningChecklistItem", "PlanningBudgetItem", "PlanningGuest", "PlanningVendorBooking",
     "SeoMetaOverride", "SeoRobotsRule", "SeoRedirect",
     "SeoPerformanceSnapshot", "BlogPost", "SeoSearchConsoleToken",
+    "AuditLog",
 ]

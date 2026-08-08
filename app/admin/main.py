@@ -15,7 +15,9 @@ from app.database.base import engine
 
 class PlanazoAdminAuth(AuthenticationBackend):
     """Shared session-based auth for all admin sites.
-    User must be ADMIN role (or superuser) to access.
+    User must have any AdminRole (app/models/admin_permissions.py) set, or be
+    superuser, to log in — per-view visibility is enforced separately by
+    AuditedModelView.is_accessible()/is_visible() in app/admin/views.py.
     """
 
     async def login(self, request: Request) -> bool:
@@ -39,10 +41,17 @@ class PlanazoAdminAuth(AuthenticationBackend):
             return False
         if not verify_password(password, user.password):
             return False
-        if not (user.is_superuser or user.role == "ADMIN"):
+        if not (user.is_superuser or user.admin_role is not None):
             return False
 
-        request.session.update({"admin_user": user.id, "admin_role": user.role})
+        # Per-view access (app/admin/views.py::AuditedModelView) reads these
+        # straight from the session — no DB round-trip needed per request.
+        request.session.update({
+            "admin_user": user.id,
+            "admin_email": user.email,
+            "admin_role": user.admin_role,
+            "is_superuser": user.is_superuser,
+        })
         return True
 
     async def logout(self, request: Request) -> bool:

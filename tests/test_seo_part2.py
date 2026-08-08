@@ -33,7 +33,7 @@ async def seo_admin_client(db_session, make_user):
         yield db_session
 
     test_app.dependency_overrides[get_db] = _override_get_db
-    admin = await make_user(email="admin@test.com", role="ADMIN")
+    admin = await make_user(email="admin@test.com", role="ADMIN", admin_role="ADMIN")
 
     from tests.conftest import auth_headers
     transport = ASGITransport(app=test_app)
