@@ -47,7 +47,11 @@ class StorageService:
     # ── Key → public URL ──────────────────────────────────────────────────────
     def cdn_url(self, key: str) -> str:
         if settings.STORAGE_BACKEND == "local":
-            return f"{settings.MEDIA_URL}{key}"
+            # Must be absolute (see BACKEND_PUBLIC_URL doc in app/core/config.py)
+            # — the SPA (Vite, :5173) and this API (:8000) are different
+            # origins in local dev, so a relative "/media/..." URL resolves
+            # against the wrong one and the image just silently fails to load.
+            return f"{settings.BACKEND_PUBLIC_URL.rstrip('/')}{settings.MEDIA_URL}{key}"
         base = settings.S3_CDN_URL.rstrip("/") if settings.S3_CDN_URL else \
                f"https://{settings.S3_BUCKET_NAME}.s3.{settings.S3_REGION}.amazonaws.com"
         return f"{base}/{key}"

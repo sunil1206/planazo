@@ -119,9 +119,54 @@ services:
     networks:
       - internal
 
+  # ── Monitoring (Prometheus + Grafana) ──────────────────────────────────────────
+  # SSH-tunnel-only by design: ports are bound to 127.0.0.1, so they're not
+  # reachable from the internet even though the server's firewall is open on
+  # 80/443 — only a process running ON the server (or someone SSH-forwarding
+  # into it) can reach them. See docs/monitoring.md for the tunnel command.
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    restart: always
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+    depends_on:
+      - api
+    networks:
+      - internal
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    restart: always
+    ports:
+      - "127.0.0.1:3001:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in .env}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_ROOT_URL=http://localhost:3001
+      - GF_ANALYTICS_REPORTING_ENABLED=false
+      - GF_ANALYTICS_CHECK_FOR_UPDATES=false
+    depends_on:
+      - prometheus
+    networks:
+      - internal
+
 volumes:
   postgres_data:
   media_files:
+  prometheus_data:
+  grafana_data:
 
 networks:
   internal:

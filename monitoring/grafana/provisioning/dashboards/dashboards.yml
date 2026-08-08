@@ -1,9 +1,9 @@
 apiVersion: 1
 
 providers:
-  - name: Snapshare
+  - name: Planazo
     orgId: 1
-    folder: Snapshare
+    folder: Planazo
     type: file
     disableDeletion: false
     updateIntervalSeconds: 30

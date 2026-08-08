@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 from prometheus_fastapi_instrumentator import Instrumentator
@@ -15,6 +16,8 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 import sentry_sdk
+
+from sqlalchemy import text
 
 from app.core.config import settings
 from app.core.rate_limit import limiter
@@ -194,10 +197,44 @@ def create_app() -> FastAPI:
     # ── Prometheus ─────────────────────────────────────────────────────────────
     Instrumentator().instrument(app).expose(app, endpoint="/metrics")
 
-    # ── Health check ───────────────────────────────────────────────────────────
+    # ── Health checks ──────────────────────────────────────────────────────────
+    # /health/live: process is up and routing requests — no dependency checks,
+    # for fast restart-loop decisions.
+    # /health/ready: also verifies Postgres and Redis are actually reachable —
+    # this is what the documented `curl https://planazo.in/health` check
+    # expects, so /health is kept as an alias of readiness for backward compat.
+    @app.get("/health/live", tags=["ops"])
+    async def health_live():
+        return {"status": "ok", "version": app.version}
+
+    @app.get("/health/ready", tags=["ops"])
+    async def health_ready():
+        checks = {"database": "ok", "redis": "ok"}
+
+        try:
+            async with engine.connect() as conn:
+                await conn.execute(text("SELECT 1"))
+        except Exception as exc:
+            checks["database"] = f"error: {exc}"
+
+        try:
+            import redis.asyncio as aioredis
+            r = aioredis.from_url(settings.REDIS_URL)
+            await r.ping()
+            await r.aclose()
+        except Exception as exc:
+            checks["redis"] = f"error: {exc}"
+
+        ok = all(v == "ok" for v in checks.values())
+        status_code = 200 if ok else 503
+        return JSONResponse(
+            status_code=status_code,
+            content={"status": "ok" if ok else "unavailable", "checks": checks},
+        )
+
     @app.get("/health", tags=["ops"])
     async def health():
-        return {"status": "ok", "version": app.version}
+        return await health_ready()
 
     return app
 

@@ -2,19 +2,23 @@ global:
   scrape_interval: 15s
   evaluation_interval: 15s
   external_labels:
-    project: snapshare
+    project: planazo
     env: development
 
 scrape_configs:
-  # Django (django-prometheus exposes /metrics)
-  - job_name: django
+  # Main API (app/ — replaced the old Django backend/). /metrics exposed via
+  # prometheus-fastapi-instrumentator, wired in app/main.py's create_app().
+  # NOTE: this job used to point at 'django:8000', a service that no longer
+  # exists in docker-compose.yml — Prometheus was silently failing to scrape
+  # anything from the main app until this was fixed.
+  - job_name: api
     static_configs:
-      - targets: ['django:8000']
+      - targets: ['api:8000']
     metrics_path: /metrics
     scrape_interval: 15s
 
-  # FastAPI (custom /metrics endpoint)
-  - job_name: fastapi
+  # Legacy AI microservice (fastapi/ — photobooth/image tasks)
+  - job_name: fastapi-legacy
     static_configs:
       - targets: ['fastapi:8001']
     metrics_path: /metrics

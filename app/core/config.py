@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from datetime import timedelta
 from typing import List
 
@@ -57,6 +57,15 @@ class Settings(BaseSettings):
     MEDIA_ROOT: str = "/app/media"
     MEDIA_URL: str = "/media/"
     STATIC_ROOT: str = "/app/staticfiles"
+
+    # Absolute base URL of THIS API server — needed to build absolute
+    # /media/... URLs when STORAGE_BACKEND=local (see services/storage.py
+    # cdn_url()). The SPA runs on a different origin (Vite dev server,
+    # localhost:5173) than the API (localhost:8000), so a relative
+    # "/media/..." URL in an <img src> resolves against the frontend's own
+    # origin and 404s silently — broken image, no console error, no network
+    # error even. In production STORAGE_BACKEND=s3 and this is unused.
+    BACKEND_PUBLIC_URL: str = "http://localhost:8000"
 
     # ── Email ─────────────────────────────────────────────────────────────────
     RESEND_API_KEY: str = ""
@@ -124,6 +133,27 @@ class Settings(BaseSettings):
     def sync_database_url(self) -> str:
         """psycopg2 URL for sync contexts (Celery tasks, Alembic)."""
         return self.DATABASE_URL.replace("+asyncpg", "")
+
+    # ── Fail fast on weak prod secrets ────────────────────────────────────────
+    # SECRET_KEY/DB_PASSWORD default to well-known placeholder values so local
+    # dev works out of the box with no .env at all. Nothing else in the stack
+    # catches a production deploy that forgot to override them — this is the
+    # only guard, so it must raise loudly rather than let the app boot signing
+    # JWTs/sessions with a publicly-known key.
+    @model_validator(mode="after")
+    def _forbid_weak_secrets_in_production(self) -> "Settings":
+        if self.ENVIRONMENT == "production":
+            if self.SECRET_KEY in ("change-me-in-production", "change-me", ""):
+                raise ValueError(
+                    "SECRET_KEY (or DJANGO_SECRET_KEY) must be set to a real "
+                    "secret when ENVIRONMENT=production."
+                )
+            if self.DB_PASSWORD == "planazo123":
+                raise ValueError(
+                    "DB_PASSWORD must not be the default dev value when "
+                    "ENVIRONMENT=production."
+                )
+        return self
 
 
 settings = Settings()

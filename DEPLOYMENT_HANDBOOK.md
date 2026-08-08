@@ -1,6 +1,13 @@
 # Multi-Site Production Deployment Handbook
 ## A Real-World Engineering Case Study
 
+> **⚠️ Stale — describes a prior Django + Traefik + Next.js architecture that no
+> longer matches this repo.** The current stack is FastAPI (`app/`) + Vite/React SPA
+> (`frontend/`) + nginx, deployed via `docker-compose.prod.yml` / `deploy.sh`. For the
+> current, grounded deployment process see
+> [`PLANAZO_DIGITALOCEAN_DEPLOY_STEPS.md`](PLANAZO_DIGITALOCEAN_DEPLOY_STEPS.md)
+> instead of following the steps below.
+
 **Project:** Planazo (wedding-tech SaaS) on DigitalOcean
 **Stack:** Django + DRF · FastAPI · Celery · Next.js 16 · PostgreSQL · Redis · Traefik
 **Audience:** Junior developers, interns, DevOps learners, future maintainers

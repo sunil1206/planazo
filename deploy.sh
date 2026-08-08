@@ -18,15 +18,11 @@ $COMPOSE up -d --build
 
 echo ""
 echo "▶  Running database migrations..."
-$COMPOSE exec -T django python manage.py migrate --noinput
-
-echo ""
-echo "▶  Collecting static files..."
-$COMPOSE exec -T django python manage.py collectstatic --noinput
+$COMPOSE exec -T api alembic upgrade head
 
 echo ""
 echo "▶  Container status:"
 $COMPOSE ps
 
 echo ""
-echo "✅  Deployment complete → https://linuslearning.in"
+echo "✅  Deployment complete → https://planazo.in"
