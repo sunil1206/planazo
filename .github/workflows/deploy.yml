@@ -23,6 +23,7 @@ jobs:
         run: |
           PYTHONPATH=. python -c "import app.main; print('app.main imported OK')"
         env:
+          ENVIRONMENT: test
           DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/postgres
           SECRET_KEY: ci-smoke-test-secret
           SENTRY_DSN: ""
@@ -30,6 +31,7 @@ jobs:
         working-directory: .
         run: pytest tests/ -v
         env:
+          ENVIRONMENT: test
           DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/postgres
           SECRET_KEY: ci-smoke-test-secret
           SENTRY_DSN: ""
@@ -53,10 +55,12 @@ jobs:
             cp .env.production .env
             docker compose -f docker-compose.prod.yml pull
             docker compose -f docker-compose.prod.yml up -d --build
-            # Base tables are created by SQLAlchemy's create_all() in app/main.py's
-            # lifespan hook on first boot; alembic upgrade head applies any
-            # incremental migrations layered on top (see app/alembic/versions/).
-            # alembic.ini lives at app/alembic.ini, not the container's default
-            # cwd (/workspace) — pass -c explicitly rather than relying on cwd.
+            # alembic upgrade head alone creates the full schema on a fresh DB
+            # (migration 0000 backfills everything create_all() used to be
+            # relied on for) and applies any incremental migrations on top.
+            # DEBUG=False in production, so app/main.py's lifespan hook never
+            # runs create_all() — alembic is the only thing that creates or
+            # alters tables here. alembic.ini lives at app/alembic.ini, not the
+            # container's default cwd (/workspace) — pass -c explicitly.
             docker compose -f docker-compose.prod.yml exec -T api alembic -c app/alembic.ini upgrade head
             echo "Deployed successfully"
