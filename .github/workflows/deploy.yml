@@ -27,6 +27,7 @@ jobs:
           DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/postgres
           SECRET_KEY: ci-smoke-test-secret
           SENTRY_DSN: ""
+          MEDIA_ROOT: /tmp/planazo-ci-media
       - name: Run test suite
         working-directory: .
         run: pytest tests/ -v
@@ -35,6 +36,7 @@ jobs:
           DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/postgres
           SECRET_KEY: ci-smoke-test-secret
           SENTRY_DSN: ""
+          MEDIA_ROOT: /tmp/planazo-ci-media
 
   deploy:
     needs: smoke-test
