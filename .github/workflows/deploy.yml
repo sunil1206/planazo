@@ -57,6 +57,13 @@ jobs:
             cp .env.production .env
             docker compose -f docker-compose.prod.yml pull
             docker compose -f docker-compose.prod.yml up -d --build
+            # nginx/planazo.conf is bind-mounted (no build: directive on the
+            # nginx service), so `up -d --build` above never recreates or
+            # restarts that container just because the file on disk changed
+            # via git pull -- nginx keeps serving whatever config it loaded
+            # at its last start. Reload explicitly so config changes (new
+            # location blocks, etc.) actually take effect on every deploy.
+            docker compose -f docker-compose.prod.yml exec -T nginx nginx -s reload
             # alembic upgrade head alone creates the full schema on a fresh DB
             # (migration 0000 backfills everything create_all() used to be
             # relied on for) and applies any incremental migrations on top.
